@@ -1,4 +1,4 @@
-# Paysted 🛡️
+# Paysted 
 
 **Secure International Payments for the Modern Nigerian Workforce.**
 
@@ -6,34 +6,34 @@ Paysted is a specialized financial platform designed to empower gig workers, fre
 
 ---
 
-## 🚀 The Mission
+##  The Mission
 
 In an economy characterized by FX volatility, traditional banking often falls short for international freelancers. Paysted provides a "Safe Vault" where your money retains its value. Receive payments globally, hold them in stablecoin reserves, and withdraw to your local bank account only when you need to—at the best rates.
 
-## ✨ Key Features
+##  Key Features
 
-### 🏦 Safe Vault
+###  Safe Vault
 - **Inflation Protection**: Hold your balances in USDC and USDT to hedge against Naira devaluation.
 - **Multi-Asset Support**: Seamlessly manage different stablecoin assets in one place.
 - **Real-time Valuation**: View your portfolio value in both USD and NGN.
 
-### 📜 Smart Invoicing
+###  Smart Invoicing
 - **Global Reach**: Generate professional payment links for international clients.
 - **Simplified Receivables**: Clients pay in their preferred format; you receive in stablecoins.
 - **Status Tracking**: Monitor pending, completed, and overdue invoices from a unified dashboard.
 
-### 💸 Seamless Payouts
+###  Seamless Payouts
 - **Direct-to-Bank**: Withdraw your stablecoin balance directly to any Nigerian bank account.
 - **Competitive Rates**: Automated conversion at market-leading FX rates.
 - **Instant Processing**: Minimize wait times for local liquidity.
 
-### 📊 Comprehensive Insights
+###  Comprehensive Insights
 - **Transaction Ledger**: A detailed "Vault Ledger" for auditing every deposit, swap, and withdrawal.
 - **Activity Feed**: Stay informed with real-time notifications on payment arrivals and payouts.
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 Paysted is built with a modern, high-performance stack:
 
@@ -46,7 +46,7 @@ Paysted is built with a modern, high-performance stack:
 
 ---
 
-## 🛠️ Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -78,7 +78,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 - `src/app`: Contains the routing logic and page components using Next.js App Router.
 - `src/components`: Reusable UI components (Sidebar, VaultCard, QuickActions, etc.).
@@ -87,7 +87,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
-## 🗺️ Roadmap
+##  Roadmap
 
 - [ ] Full Integration with **Busha Commerce API**.
 - [ ] Automated PostgreSQL balance synchronization.
@@ -96,7 +96,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

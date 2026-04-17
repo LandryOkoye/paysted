@@ -1,53 +1,82 @@
 "use client";
 
-import { Eye, TrendingUp, Wallet } from 'lucide-react';
-import { useCurrency } from '@/context/CurrencyContext';
+import { Eye, EyeOff, TrendingUp } from "lucide-react";
+import { useState } from "react";
+import { useCurrency } from "@/context/CurrencyContext";
+
+// Static sparkline points for the mini chart (demo data)
+const SPARKLINE_POINTS = "0,42 20,36 40,39 60,24 80,28 100,16 120,20 140,8 160,13";
 
 export default function VaultCard() {
   const { currency } = useCurrency();
-  const isUSDC = currency === 'USDC';
-  const logoUrl = isUSDC
-    ? 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/usdc.png'
-    : 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/usdt.png';
+  const [isHidden, setIsHidden] = useState(false);
 
   return (
-    <div className="card-3d p-6 md:p-8 w-full mb-6 bg-white relative">
+    <div className="relative w-full mb-4 p-6 md:p-7 rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a2235] to-[#111827] border border-white/[0.06]">
 
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shadow-inner">
-            <Wallet size={18} className="text-slate-600" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              {currency} Vault
-              <Eye size={14} className="text-slate-300 cursor-pointer hover:text-slate-500 transition-colors" />
-            </p>
-          </div>
-        </div>
+      {/* Decorative background glow */}
+      <div className="absolute top-0 right-0 w-56 h-56 bg-emerald-500/[0.06] rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl pointer-events-none" />
 
-        <div className="flex items-center gap-2 border border-slate-100 bg-slate-50 px-2.5 py-1 rounded-full shadow-sm">
-          <img src={logoUrl} alt={`${currency} Logo`} className="w-4 h-4 object-contain drop-shadow-sm" />
-          <span className="text-xs font-bold text-slate-600 tracking-wide">{currency}</span>
+      {/* ── Top Row: Label + Weekly Badge ──────────────── */}
+      <div className="flex items-center justify-between mb-5">
+        <p className="flex items-center gap-2 text-sm font-medium text-slate-400">
+          Vault Balance
+          <button
+            onClick={() => setIsHidden(!isHidden)}
+            aria-label="Toggle balance visibility"
+            className="text-slate-600 hover:text-slate-300 transition-colors"
+          >
+            {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </p>
+
+        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+          <TrendingUp size={11} className="text-emerald-400" />
+          <span className="text-[11px] font-bold text-emerald-400">+$120.50 past week</span>
         </div>
       </div>
 
-      <div className="mb-8">
-        <h1 className="text-[2.75rem] md:text-6xl font-extrabold text-slate-900 tracking-tight leading-none">
-          $250.00
+      {/* ── Balance Amount ─────────────────────────────── */}
+      <div className="mb-1">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-none">
+          {isHidden ? "••••••" : "$250.00"}
+          <span className="text-xl md:text-2xl ml-2 text-slate-400 font-bold">{currency}</span>
         </h1>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-5 border-t border-slate-100">
-        <span className="text-sm text-slate-500 font-semibold tracking-wide flex items-center gap-2">
-          ≈ ₦337,500.00 NGN
-        </span>
+      {/* Fiat equivalent */}
+      <p className="text-sm text-slate-400 font-medium mb-6">
+        {isHidden ? "•••••••••" : "≈ ₦337,500.00 NGN"}
+      </p>
 
-        <span className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 shadow-sm w-max">
-          <TrendingUp size={14} strokeWidth={2.5} className="text-emerald-600" />
-          +$120.50 past week
-        </span>
-      </div>
+      {/* ── Mini Sparkline Chart ──────────────────────── */}
+      <svg
+        viewBox="0 0 160 50"
+        className="w-full h-10"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="sparkGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#10b981" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0"   />
+          </linearGradient>
+        </defs>
+        {/* Fill area under the line */}
+        <polygon
+          points={`0,50 ${SPARKLINE_POINTS} 160,50`}
+          fill="url(#sparkGradient)"
+        />
+        {/* The line itself */}
+        <polyline
+          points={SPARKLINE_POINTS}
+          fill="none"
+          stroke="#10b981"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
 
     </div>
   );

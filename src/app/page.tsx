@@ -1,61 +1,65 @@
-import Sidebar from '@/components/Sidebar';
-import VaultCard from '@/components/VaultCard';
-import QuickActions from '@/components/QuickAction';
-import InvoiceSummary from '@/components/InvoiceSummary';
-import ActivityFeed from '@/components/ActivityFeed';
-import MobileNav from '@/components/MobileNav';
-import { Bell, Gift } from 'lucide-react';
+import Sidebar          from "@/components/Sidebar";
+import MobileNav        from "@/components/MobileNav";
+import VaultCard        from "@/components/VaultCard";
+import QuickActions     from "@/components/QuickAction";
+import VaultRulesSection from "@/components/VaultRulesSection";
+import ActivityFeed     from "@/components/ActivityFeed";
+import { Bell }         from "lucide-react";
 
-export default function Dashboard() {
+export default function DashboardPage() {
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
+    <div className="flex min-h-screen bg-[#0D1117] pb-20 md:pb-0">
       <Sidebar />
-      
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 p-4 md:p-8 lg:p-12 relative">
-        <div className="max-w-[1400px] mx-auto pt-4 md:pt-6">
-          
-          {/* Mobile Logo */}
-          <img src="/PayStepLogo-removebg.png" alt="PaySted Logo" className="h-8 w-auto md:hidden object-contain mb-6 px-1" />
 
-          {/* Header */}
-          <header className="mb-10 flex justify-between items-center bg-white card-3d px-6 py-4 rounded-3xl">
-            <div className="flex items-center gap-4">
-              <img 
-                src="https://i.pravatar.cc/150?img=68" 
-                alt="Profile" 
-                className="w-12 h-12 rounded-full border border-slate-200 shadow-sm"
+      <main className="flex-1 md:ml-64 p-4 md:p-6 lg:p-8">
+        <div className="max-w-2xl mx-auto pt-2 md:pt-4">
+
+          {/* Mobile — Paysted logo */}
+          <img
+            src="/PayStepLogo-removebg.png"
+            alt="Paysted"
+            className="h-7 w-auto md:hidden object-contain mb-5 brightness-0 invert"
+          />
+
+          {/* ── Page Header ───────────────────────────────── */}
+          <header className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <img
+                src="https://i.pravatar.cc/150?img=68"
+                alt="Tola Designer"
+                className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/20"
               />
               <div>
-                <p className="text-xs text-slate-500 font-medium tracking-wide pb-0.5">GOOD MORNING</p>
-                <h2 className="text-xl font-bold tracking-tight text-slate-800">Tola Designer</h2>
+                <p className="text-[11px] text-slate-500 font-medium uppercase tracking-widest">
+                  Good Morning
+                </p>
+                <h2 className="text-base font-bold text-white leading-tight">Tola Designer</h2>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white shadow-3d-soft border border-slate-100 flex items-center justify-center cursor-pointer text-slate-600 hover:bg-slate-50 transition relative">
-                <Bell size={20} />
-                <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-emerald-500 border border-white"></span>
-              </div>
-            </div>
+
+            {/* Notification bell */}
+            <button
+              id="notifications-btn"
+              aria-label="Notifications"
+              className="relative w-10 h-10 rounded-full bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.10] transition-all"
+            >
+              <Bell size={18} />
+              {/* Unread dot */}
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+            </button>
           </header>
 
-          {/* Desktop Grid Layout */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            
-            {/* Left Column (Primary Actions) */}
-            <div className="xl:col-span-7 flex flex-col gap-2">
-              <VaultCard />
-              <QuickActions />
-              <InvoiceSummary />
-            </div>
+          {/* ── Vault Balance Card ────────────────────────── */}
+          <VaultCard />
 
-            {/* Right Column (Activity Feed) */}
-            <div className="xl:col-span-5 flex flex-col">
-              <ActivityFeed />
-            </div>
+          {/* ── Quick Actions (Generate Link + Instant Payout) */}
+          <QuickActions />
 
-          </div>
+          {/* ── Vault Rules Preview ───────────────────────── */}
+          <VaultRulesSection />
+
+          {/* ── Recent Activity Feed ──────────────────────── */}
+          <ActivityFeed />
 
         </div>
       </main>

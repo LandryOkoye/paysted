@@ -1,85 +1,258 @@
 "use client";
 
-import Sidebar from '@/components/Sidebar';
-import MobileNav from '@/components/MobileNav';
-import { Link2, Copy, Send, ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState }   from "react";
+import Sidebar         from "@/components/Sidebar";
+import MobileNav       from "@/components/MobileNav";
+import { Link2, Copy, Send, ArrowLeft, Check } from "lucide-react";
+import { useRouter }   from "next/navigation";
+
+// ─── Component ──────────────────────────────────────────────────────
 
 export default function GenerateLinkPage() {
-  const [copied, setCopied] = useState(false);
-  const [generated, setGenerated] = useState(false);
   const router = useRouter();
 
-  return (
-    <div className="flex min-h-screen bg-[#F8F9FA] pb-20 md:pb-0">
-      <Sidebar />
-      <main className="flex-1 md:ml-64 p-4 md:p-8 lg:p-12 relative w-full flex items-center justify-center">
-        <div className="max-w-xl w-full mx-auto">
+  // Form state
+  const [clientName,   setClientName]   = useState("");
+  const [amount,       setAmount]       = useState("");
+  const [description,  setDescription]  = useState("");
 
-          <header className="mb-8 w-full flex justify-between items-center">
+  // UI state
+  const [generated, setGenerated] = useState(false);
+  const [copied,    setCopied]    = useState(false);
+
+  const generatedLink = "https://pay.busha.io/charges/77255764";
+
+  const handleGenerate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setGenerated(true);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generatedLink).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleReset = () => {
+    setGenerated(false);
+    setCopied(false);
+    setClientName("");
+    setAmount("");
+    setDescription("");
+  };
+
+  return (
+    <div className="flex min-h-screen bg-[#0D1117] pb-20 md:pb-0">
+      <Sidebar />
+
+      <main className="flex-1 md:ml-64 p-4 md:p-6 lg:p-8 flex items-center justify-center">
+        <div className="max-w-lg w-full mx-auto">
+
+          {/* ── Top Bar ────────────────────────────────── */}
+          <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => router.back()}
-              className="p-2.5 text-slate-500 hover:text-slate-800 bg-white rounded-xl shadow-sm border border-slate-100 transition-all active:scale-95 cursor-pointer mb-4"
+              id="back-btn"
+              className="p-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-slate-400 hover:text-white transition-all"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </button>
-            <img src="/PayStepLogo-removebg.png" alt="PaySted Logo" className="h-7 w-auto md:hidden object-contain mb-4" />
-          </header>
+            {/* Paysted logo — visible on mobile */}
+            <img
+              src="/PayStepLogo-removebg.png"
+              alt="Paysted"
+              className="h-7 w-auto md:hidden object-contain brightness-0 invert"
+            />
+            {/* Spacer so back button aligns left */}
+            <div className="w-10 md:hidden" />
+          </div>
 
-          <div className="card-3d bg-white p-6 sm:p-10 rounded-3xl w-full">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-6 shadow-inner mx-auto">
-              <Link2 size={28} className="text-emerald-600" />
+          {/* ── Card ─────────────────────────────────── */}
+          <div className="rounded-2xl bg-[#1a2235] border border-white/[0.06] p-6 sm:p-8 w-full">
+
+            {/* Icon + titles */}
+            <div className="flex flex-col items-center mb-7 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
+                <Link2 size={26} className="text-emerald-400" />
+              </div>
+              <h1 className="text-2xl font-bold text-white">Create Payment Link</h1>
+              <p className="text-sm text-slate-400 mt-1.5 max-w-sm">
+                Generate a borderless invoice link to share with your global client.
+              </p>
             </div>
 
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 text-center mb-2">Create Payment Link</h1>
-            <p className="text-slate-500 text-sm text-center mb-8">Generate a borderless invoice link to send to your global client.</p>
-
+            {/* ── Form (before generation) ─────────────── */}
             {!generated ? (
-              <form onSubmit={(e) => { e.preventDefault(); setGenerated(true); }} className="space-y-6">
+              <form onSubmit={handleGenerate} className="space-y-5">
+
+                {/* Client Name */}
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Client Name / Company</label>
-                  <input required autoFocus type="text" placeholder="e.g. Acme Corp" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-800" />
+                  <label
+                    htmlFor="client-name"
+                    className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2"
+                  >
+                    Client Name / Company
+                  </label>
+                  <input
+                    id="client-name"
+                    required
+                    autoFocus
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="e.g. Acme Corp"
+                    className="
+                      w-full px-4 py-3 rounded-xl text-sm text-white
+                      bg-white/[0.04] border border-white/[0.08]
+                      placeholder-slate-600
+                      focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.07]
+                      transition-all
+                    "
+                  />
                 </div>
+
+                {/* Amount */}
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Amount (USD)</label>
+                  <label
+                    htmlFor="invoice-amount"
+                    className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2"
+                  >
+                    Amount (USD)
+                  </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
-                    <input required type="number" min="1" placeholder="0.00" className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold text-slate-800" />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">
+                      $
+                    </span>
+                    <input
+                      id="invoice-amount"
+                      required
+                      type="number"
+                      min="1"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="
+                        w-full pl-8 pr-4 py-3 rounded-xl text-sm font-bold text-white
+                        bg-white/[0.04] border border-white/[0.08]
+                        placeholder-slate-600
+                        focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.07]
+                        transition-all
+                      "
+                    />
                   </div>
                 </div>
+
+                {/* Description (optional) */}
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Description <span className="text-slate-400 font-normal">(Optional)</span></label>
-                  <input type="text" placeholder="e.g. UI/UX Design for Website" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-800" />
+                  <label
+                    htmlFor="invoice-desc"
+                    className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2"
+                  >
+                    Description{" "}
+                    <span className="text-slate-600 normal-case font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    id="invoice-desc"
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="e.g. UI/UX Design — Q4 Sprint"
+                    className="
+                      w-full px-4 py-3 rounded-xl text-sm text-white
+                      bg-white/[0.04] border border-white/[0.08]
+                      placeholder-slate-600
+                      focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.07]
+                      transition-all
+                    "
+                  />
                 </div>
 
-                <button type="submit" className="w-full btn-3d-accent bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 active:shadow-inner text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all mt-4 text-base cursor-pointer">
+                {/* Submit */}
+                <button
+                  id="generate-link-btn"
+                  type="submit"
+                  className="
+                    w-full py-4 mt-2 rounded-xl text-white font-bold text-base
+                    bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600
+                    shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.99]
+                  "
+                >
                   Generate Secure Link
                 </button>
               </form>
+
             ) : (
-              <div className="animate-in fade-in zoom-in duration-300">
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Your Link</p>
+              // ── Success State ───────────────────────────
+              <div>
+                {/* Success badge */}
+                <div className="flex items-center justify-center mb-5">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
+                    <Check size={22} className="text-emerald-400" />
+                  </div>
+                </div>
+                <p className="text-center text-sm font-semibold text-emerald-400 mb-6">
+                  Link generated successfully!
+                </p>
+
+                {/* Generated link row */}
+                <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] mb-5">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                    Your Payment Link
+                  </p>
                   <div className="flex items-center gap-3">
-                    <input readOnly value="https://pay.busha.io/charges/77255764" className="flex-1 bg-transparent border-none text-slate-800 font-medium text-sm focus:outline-none px-1" />
-                    <button onClick={() => setCopied(true)} className={`p-2.5 rounded-xl transition-all cursor-pointer ${copied ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'} shadow-sm`}>
-                      <Copy size={18} />
+                    <input
+                      readOnly
+                      value={generatedLink}
+                      id="generated-link-input"
+                      className="flex-1 bg-transparent text-sm text-slate-300 font-medium focus:outline-none truncate"
+                    />
+                    <button
+                      id="copy-link-btn"
+                      onClick={handleCopy}
+                      className={`
+                        p-2.5 rounded-xl transition-all border text-sm
+                        ${copied
+                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                          : "bg-white/[0.06] border-white/[0.10] text-slate-300 hover:bg-white/[0.10]"}
+                      `}
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <button onClick={() => setGenerated(false)} className="flex-1 btn-3d bg-white font-bold text-slate-600 py-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 active:bg-slate-100 transition-all text-sm cursor-pointer shadow-sm">Create Another</button>
-                  <button className="flex-1 btn-3d-accent bg-emerald-600 font-bold text-white py-3.5 rounded-xl border border-transparent shadow-sm hover:bg-emerald-500 active:bg-emerald-700 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"><Send size={16} /> Send via Email</button>
+                {/* Action buttons */}
+                <div className="flex gap-3">
+                  <button
+                    id="create-another-btn"
+                    onClick={handleReset}
+                    className="
+                      flex-1 py-3.5 rounded-xl text-sm font-bold
+                      bg-white/[0.05] border border-white/[0.08] text-slate-300
+                      hover:bg-white/[0.09] transition-all
+                    "
+                  >
+                    Create Another
+                  </button>
+                  <button
+                    id="send-email-btn"
+                    className="
+                      flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl
+                      text-sm font-bold text-white
+                      bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600
+                      shadow-lg shadow-emerald-500/20 transition-all
+                    "
+                  >
+                    <Send size={15} /> Send via Email
+                  </button>
                 </div>
               </div>
             )}
 
           </div>
-
         </div>
       </main>
+
       <MobileNav />
     </div>
   );

@@ -21,19 +21,19 @@ export default function Sidebar() {
   return (
     <aside className="w-64 h-screen fixed left-0 top-0 hidden md:flex flex-col bg-[#111827] border-r border-white/[0.06] z-50 px-5 pt-8">
 
-      {/* ── Brand / Logo ─────────────────────────────── */}
-      <Link href="/" className="flex items-center gap-3 px-3 mb-10 group">
-        <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:bg-emerald-400 transition-colors">
-          <img
-            src="/PayStepLogo-removebg.png"
-            alt="Paysted"
-            className="h-5 w-5 object-contain brightness-0 invert"
-          />
-        </div>
-        <div>
-          <p className="text-[10px] text-slate-500 font-semibold tracking-widest uppercase">Borderless</p>
-          <p className="text-sm font-bold text-white leading-tight">Vault</p>
-        </div>
+      {/* ── Paysted Logo + Name ───────────────────────── */}
+      <Link
+        href="/"
+        className="flex items-center gap-2.5 mb-10 px-3 hover:opacity-80 transition-opacity"
+      >
+        <img
+          src="/PayStepLogo-removebg.png"
+          alt="Paysted"
+          className="h-8 w-auto object-contain"
+        />
+        <span className="text-lg font-extrabold text-white tracking-tight">
+          Paysted
+        </span>
       </Link>
 
       {/* ── Navigation ───────────────────────────────── */}

@@ -1,50 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
-import Link from "next/link";
+import { Plus }      from "lucide-react";
+import Link          from "next/link";
+import { useRules }  from "@/context/RulesContext";
 import CreateRuleModal from "./CreateRuleModal";
 
-// ─── Types ─────────────────────────────────────────────────────────
-
-interface VaultRule {
-  id: number;
-  name: string;
-  description: string;
-  isActive: boolean;
-}
-
-// ─── Default Rules (Mock Data) ──────────────────────────────────────
-
-const INITIAL_RULES: VaultRule[] = [
-  {
-    id: 1,
-    name: "Auto-Convert USDT to USDC",
-    description: "Every Friday at 5 PM",
-    isActive: true,
-  },
-  {
-    id: 2,
-    name: "Salary Allocation Rule",
-    description: "50% of incoming USDT to Savings",
-    isActive: true,
-  },
-];
-
-// ─── Component ──────────────────────────────────────────────────────
-
 export default function VaultRulesSection() {
-  const [rules, setRules]       = useState<VaultRule[]>(INITIAL_RULES);
+  const { rules, toggleRule } = useRules();
   const [isModalOpen, setModal] = useState(false);
 
-  // Toggle a rule on or off
-  const toggleRule = (id: number) => {
-    setRules((prev) =>
-      prev.map((rule) =>
-        rule.id === id ? { ...rule, isActive: !rule.isActive } : rule
-      )
-    );
-  };
+  // Dashboard shows the first 2 active rules as a preview
+  const preview = rules.filter((r) => r.isActive).slice(0, 2);
 
   return (
     <>
@@ -62,47 +29,55 @@ export default function VaultRulesSection() {
           </button>
         </div>
 
-        {/* ── Rule Cards ───────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {rules.map((rule) => (
-            <div
-              key={rule.id}
-              className="flex flex-col gap-3 p-4 rounded-2xl bg-[#1a2235] border border-white/[0.06]"
-            >
-              {/* Top row: Active badge + toggle switch */}
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                  {rule.isActive ? "Active" : "Paused"}
-                </span>
+        {/* ── Preview Cards (first 2 active rules) ─────── */}
+        {preview.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-6 border border-white/[0.06] rounded-2xl">
+            No active rules yet.{" "}
+            <button onClick={() => setModal(true)} className="text-emerald-400 underline">
+              Create one →
+            </button>
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {preview.map((rule) => (
+              <div
+                key={rule.id}
+                className="flex flex-col gap-3 p-4 rounded-2xl bg-[#1a2235] border border-white/[0.06]"
+              >
+                {/* Top row: badge + toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    {rule.isActive ? "Active" : "Paused"}
+                  </span>
 
-                {/* Toggle switch */}
-                <button
-                  id={`rule-toggle-${rule.id}`}
-                  onClick={() => toggleRule(rule.id)}
-                  aria-label={`Toggle "${rule.name}"`}
-                  className={`
-                    relative inline-flex h-5 w-9 items-center rounded-full transition-colors
-                    ${rule.isActive ? "bg-emerald-500" : "bg-slate-600"}
-                  `}
-                >
-                  <span
+                  <button
+                    id={`rule-toggle-${rule.id}`}
+                    onClick={() => toggleRule(rule.id)}
+                    aria-label={`Toggle "${rule.name}"`}
                     className={`
-                      inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow
-                      transition-transform duration-200
-                      ${rule.isActive ? "translate-x-4" : "translate-x-1"}
+                      relative inline-flex h-5 w-9 items-center rounded-full transition-colors
+                      ${rule.isActive ? "bg-emerald-500" : "bg-slate-600"}
                     `}
-                  />
-                </button>
-              </div>
+                  >
+                    <span
+                      className={`
+                        inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow
+                        transition-transform duration-200
+                        ${rule.isActive ? "translate-x-4" : "translate-x-1"}
+                      `}
+                    />
+                  </button>
+                </div>
 
-              {/* Rule name + description */}
-              <div>
-                <p className="text-sm font-bold text-white">{rule.name}</p>
-                <p className="text-xs text-slate-400 mt-0.5 font-medium">{rule.description}</p>
+                {/* Rule info */}
+                <div>
+                  <p className="text-sm font-bold text-white">{rule.name}</p>
+                  <p className="text-xs text-slate-400 mt-0.5 font-medium">{rule.trigger}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* ── View All link ─────────────────────────────── */}
         <Link
@@ -115,12 +90,12 @@ export default function VaultRulesSection() {
             transition-all
           "
         >
-          View all rules →
+          View all rules ({rules.length}) →
         </Link>
 
       </div>
 
-      {/* ── Create Rule Modal ─────────────────────────── */}
+      {/* Create Rule Modal */}
       {isModalOpen && <CreateRuleModal onClose={() => setModal(false)} />}
     </>
   );

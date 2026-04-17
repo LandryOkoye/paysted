@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, ArrowLeft, Check, TrendingUp, Calendar, Wallet, PieChart, RefreshCcw } from "lucide-react";
+import { useRules } from "@/context/RulesContext";
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ interface CreateRuleModalProps {
   onClose: () => void;
 }
 
-// ─── Static Data ────────────────────────────────────────────────────
+// ─── Step data ──────────────────────────────────────────────────────
 
 const TRIGGERS: Trigger[] = [
   {
@@ -53,17 +54,13 @@ const ACTIONS: Action[] = [
     id: "convert_ngn",
     label: "Convert to NGN",
     description: "Automatically convert the incoming stablecoin amount to Nigerian Naira at the best current rate.",
-    iconContent: (
-      <span className="text-lg font-black text-emerald-400">₦</span>
-    ),
+    iconContent: <span className="text-lg font-black text-emerald-400">₦</span>,
   },
   {
     id: "mpesa",
     label: "Send to M-Pesa",
     description: "Instantly send the funds to a linked M-Pesa mobile money wallet.",
-    iconContent: (
-      <span className="text-[10px] font-black text-red-400 leading-tight text-center">M·PESA</span>
-    ),
+    iconContent: <span className="text-[10px] font-black text-red-400 leading-tight">M·PESA</span>,
   },
   {
     id: "split",
@@ -78,37 +75,47 @@ const STEP_LABELS = ["Choose Trigger", "Choose Action", "Confirm & Activate"];
 // ─── Component ──────────────────────────────────────────────────────
 
 export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
-  const [step, setStep] = useState<Step>(1);
-  const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
-  const [selectedAction, setSelectedAction]   = useState<string | null>(null);
+  const { addRule } = useRules();
+
+  const [step,             setStep]            = useState<Step>(1);
+  const [selectedTrigger,  setSelectedTrigger] = useState<string | null>(null);
+  const [selectedAction,   setSelectedAction]  = useState<string | null>(null);
+  const [ruleName,         setRuleName]        = useState("");
 
   const canContinue =
     (step === 1 && selectedTrigger !== null) ||
-    (step === 2 && selectedAction !== null) ||
+    (step === 2 && selectedAction  !== null) ||
     step === 3;
+
+  const chosenTrigger = TRIGGERS.find((t) => t.id === selectedTrigger);
+  const chosenAction  = ACTIONS.find((a)  => a.id === selectedAction);
+
+  const handleNext = () => {
+    if (step < 3) {
+      setStep((step + 1) as Step);
+      return;
+    }
+
+    // ── Step 3: Activate the rule ────────────────────
+    const name    = ruleName.trim() || `${chosenTrigger?.label} → ${chosenAction?.label}`;
+    const trigger = chosenTrigger?.label ?? "";
+    const action  = chosenAction?.label  ?? "";
+
+    addRule({ name, trigger, action }); // updates the shared context
+    onClose();
+  };
 
   const handleBack = () => {
     if (step > 1) setStep((step - 1) as Step);
   };
 
-  const handleNext = () => {
-    if (step < 3) setStep((step + 1) as Step);
-    else onClose(); // Close after activation on step 3
-  };
-
-  const chosenTrigger = TRIGGERS.find((t) => t.id === selectedTrigger);
-  const chosenAction  = ACTIONS.find((a) => a.id === selectedAction);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
 
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal Panel */}
+      {/* Modal panel */}
       <div className="relative z-10 w-full max-w-md bg-[#111827] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden">
 
         {/* ── Header ───────────────────────────────────── */}
@@ -118,8 +125,8 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
               Step {step} of 3: {STEP_LABELS[step - 1]}
             </p>
             <button
-              onClick={onClose}
               id="close-rule-modal"
+              onClick={onClose}
               className="text-slate-500 hover:text-white transition-colors"
             >
               <X size={18} />
@@ -128,7 +135,7 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
 
           <h2 className="text-xl font-bold text-white mb-4">Create Automation Rule</h2>
 
-          {/* Step Progress Indicator */}
+          {/* Step progress indicator */}
           <div className="flex items-center gap-1">
             {([1, 2, 3] as Step[]).map((s) => (
               <div key={s} className="flex items-center gap-1">
@@ -168,8 +175,7 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
                         flex items-start gap-4 p-4 rounded-xl border text-left transition-all
                         ${active
                           ? "border-emerald-500 bg-emerald-500/10"
-                          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20"
-                        }
+                          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20"}
                       `}
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${active ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-slate-400"}`}>
@@ -206,22 +212,17 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
                         relative flex flex-col items-center gap-2.5 p-4 rounded-xl border text-center transition-all
                         ${active
                           ? "border-emerald-500 bg-emerald-500/10"
-                          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20"
-                        }
+                          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20"}
                       `}
                     >
-                      {/* Checkmark badge */}
                       {active && (
                         <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
                           <Check size={9} className="text-white" />
                         </div>
                       )}
-
-                      {/* Icon circle */}
                       <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
                         {iconContent}
                       </div>
-
                       <p className={`text-xs font-bold leading-tight ${active ? "text-emerald-400" : "text-white"}`}>
                         {label}
                       </p>
@@ -238,7 +239,7 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
             <div>
               <p className="text-sm font-bold text-white mb-4">Step 3 of 3: {STEP_LABELS[2]}</p>
 
-              {/* Rule Summary */}
+              {/* Rule summary */}
               <div className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] mb-4">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                   <RefreshCcw size={16} className="text-emerald-400" />
@@ -254,15 +255,20 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
                 </div>
               </div>
 
-              {/* Rule Name Input */}
+              {/* Rule name input */}
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                  Rule Name
+                <label
+                  htmlFor="rule-name-input"
+                  className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2"
+                >
+                  Rule Name <span className="text-slate-600 normal-case font-normal">(optional)</span>
                 </label>
                 <input
                   id="rule-name-input"
                   type="text"
-                  placeholder="e.g. Friday Salary Convert"
+                  value={ruleName}
+                  onChange={(e) => setRuleName(e.target.value)}
+                  placeholder={`${chosenTrigger?.label} → ${chosenAction?.label}`}
                   className="
                     w-full px-4 py-3 rounded-xl text-sm text-white
                     bg-white/[0.05] border border-white/[0.10]
@@ -308,8 +314,7 @@ export default function CreateRuleModal({ onClose }: CreateRuleModalProps) {
               flex-1 py-3 rounded-xl text-sm font-bold transition-all
               ${canContinue
                 ? "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20"
-                : "bg-white/[0.08] text-slate-500 cursor-not-allowed"
-              }
+                : "bg-white/[0.08] text-slate-500 cursor-not-allowed"}
             `}
           >
             {step === 3 ? "Activate Rule" : "Continue"}

@@ -1,70 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import Sidebar      from "@/components/Sidebar";
-import MobileNav    from "@/components/MobileNav";
-import CreateRuleModal from "@/components/CreateRuleModal";
-import {
-  Plus, Zap, ArrowLeft,
-  TrendingUp, Calendar, Wallet,
-  RefreshCcw, Trash2,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useState }       from "react";
+import Sidebar             from "@/components/Sidebar";
+import MobileNav           from "@/components/MobileNav";
+import CreateRuleModal     from "@/components/CreateRuleModal";
+import ConfirmDialog       from "@/components/ConfirmDialog";
+import { useRules }        from "@/context/RulesContext";
+import { useRouter }       from "next/navigation";
+import { Plus, Zap, ArrowLeft, TrendingUp, Calendar, Wallet, Trash2 } from "lucide-react";
 
-// ─── Types ─────────────────────────────────────────────────────────
-
-interface Rule {
-  id: number;
-  name: string;
-  trigger: string;
-  action: string;
-  isActive: boolean;
-  executions: number;
-  lastRun: string;
-}
-
-// ─── Mock Rules Data ────────────────────────────────────────────────
-
-const INITIAL_RULES: Rule[] = [
-  {
-    id: 1,
-    name: "Auto-Convert USDT to USDC",
-    trigger: "Every Friday at 5 PM",
-    action: "Convert to NGN",
-    isActive: true,
-    executions: 8,
-    lastRun: "Apr 11, 2026",
-  },
-  {
-    id: 2,
-    name: "Salary Allocation Rule",
-    trigger: "Balance Reached $500",
-    action: "Split 50% to Savings",
-    isActive: true,
-    executions: 3,
-    lastRun: "Apr 14, 2026",
-  },
-  {
-    id: 3,
-    name: "NGN Rate Alert Convert",
-    trigger: "Rate hits ₦1,600",
-    action: "Convert $200 to NGN → GTBank",
-    isActive: false,
-    executions: 1,
-    lastRun: "Mar 28, 2026",
-  },
-];
-
-// Trigger icon map
-const TRIGGER_ICONS: Record<string, React.ElementType> = {
-  rate:     TrendingUp,
-  schedule: Calendar,
-  balance:  Wallet,
-};
+// ─── Helper — pick an icon based on the trigger description ─────────
 
 function getTriggerIcon(trigger: string) {
-  if (trigger.toLowerCase().includes("rate"))    return TrendingUp;
-  if (trigger.toLowerCase().includes("friday") || trigger.toLowerCase().includes("pm")) return Calendar;
+  const t = trigger.toLowerCase();
+  if (t.includes("rate") || t.includes("₦"))        return TrendingUp;
+  if (t.includes("friday") || t.includes("schedule")) return Calendar;
   return Wallet;
 }
 
@@ -72,20 +22,20 @@ function getTriggerIcon(trigger: string) {
 
 export default function RulesPage() {
   const router = useRouter();
-  const [rules, setRules]       = useState<Rule[]>(INITIAL_RULES);
-  const [isModalOpen, setModal] = useState(false);
+  const { rules, toggleRule, deleteRule } = useRules();
 
-  const toggleRule = (id: number) => {
-    setRules((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isActive: !r.isActive } : r))
-    );
+  const [isModalOpen, setModal]     = useState(false);
+
+  // Tracks which rule is pending deletion (shows the in-app confirm dialog)
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
+  const pendingDeleteRule = rules.find((r) => r.id === pendingDeleteId);
+  const activeCount       = rules.filter((r) => r.isActive).length;
+
+  const handleConfirmDelete = () => {
+    if (pendingDeleteId !== null) deleteRule(pendingDeleteId);
+    setPendingDeleteId(null);
   };
-
-  const deleteRule = (id: number) => {
-    setRules((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const activeCount = rules.filter((r) => r.isActive).length;
 
   return (
     <div className="flex min-h-screen bg-[#0D1117] pb-20 md:pb-0">
@@ -98,12 +48,12 @@ export default function RulesPage() {
           <img
             src="/PayStepLogo-removebg.png"
             alt="Paysted"
-            className="h-7 w-auto md:hidden object-contain mb-5 brightness-0 invert"
+            className="h-7 w-auto md:hidden object-contain mb-5"
           />
 
           {/* ── Page Header ─────────────────────────────── */}
-          <header className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
+          <header className="flex items-center justify-between mb-8 gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
                 className="md:hidden p-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-slate-400 hover:text-white transition-all"
@@ -138,18 +88,22 @@ export default function RulesPage() {
             <p className="text-xs text-slate-300 leading-relaxed">
               <span className="font-bold text-emerald-400">Vault Rules</span> are programmable automations
               that monitor live exchange rates and execute conversions or payouts when your conditions are met —
-              without you needing to check rates every day.
+              without you needing to check rates every morning.
             </p>
           </div>
 
           {/* ── Rules List ──────────────────────────────── */}
           {rules.length === 0 ? (
+
+            /* Empty state */
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4">
                 <Zap size={28} className="text-slate-600" />
               </div>
               <p className="text-white font-bold mb-1">No rules yet</p>
-              <p className="text-sm text-slate-500 mb-6">Create your first automation to put your money on autopilot.</p>
+              <p className="text-sm text-slate-500 mb-6">
+                Create your first automation to put your money on autopilot.
+              </p>
               <button
                 onClick={() => setModal(true)}
                 className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-bold transition-all"
@@ -157,7 +111,9 @@ export default function RulesPage() {
                 <Plus size={15} /> Create First Rule
               </button>
             </div>
+
           ) : (
+
             <div className="flex flex-col gap-3">
               {rules.map((rule) => {
                 const TriggerIcon = getTriggerIcon(rule.trigger);
@@ -177,7 +133,7 @@ export default function RulesPage() {
                         <p className="text-xs text-slate-400 mt-0.5">Then: {rule.action}</p>
                         <div className="flex items-center gap-3 mt-2">
                           <span className="text-[10px] text-slate-500 font-medium">
-                            {rule.executions} executions
+                            {rule.executions} execution{rule.executions !== 1 ? "s" : ""}
                           </span>
                           <span className="w-1 h-1 rounded-full bg-slate-700" />
                           <span className="text-[10px] text-slate-500 font-medium">
@@ -187,8 +143,8 @@ export default function RulesPage() {
                       </div>
                     </div>
 
-                    {/* Right: status badge + toggle + delete */}
-                    <div className="flex items-center gap-3 sm:flex-shrink-0">
+                    {/* Right: badge + toggle + delete */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
                       <span className={`
                         text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full
                         ${rule.isActive
@@ -216,10 +172,10 @@ export default function RulesPage() {
                         />
                       </button>
 
-                      {/* Delete button */}
+                      {/* Delete — opens in-app confirm dialog */}
                       <button
                         id={`delete-rule-${rule.id}`}
-                        onClick={() => deleteRule(rule.id)}
+                        onClick={() => setPendingDeleteId(rule.id)}
                         aria-label={`Delete "${rule.name}"`}
                         className="p-2 rounded-xl text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
                       >
@@ -232,11 +188,13 @@ export default function RulesPage() {
             </div>
           )}
 
-          {/* ── Free Plan Note ──────────────────────────── */}
+          {/* ── Upgrade notice ──────────────────────────── */}
           <div className="mt-6 flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
             <div>
               <p className="text-xs font-bold text-white">Free Plan: 2 active rules</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Upgrade to Pro for unlimited rules + priority execution.</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Upgrade to Pro for unlimited rules + priority execution.
+              </p>
             </div>
             <button className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 transition-colors">
               Upgrade
@@ -250,6 +208,17 @@ export default function RulesPage() {
 
       {/* Create Rule Modal */}
       {isModalOpen && <CreateRuleModal onClose={() => setModal(false)} />}
+
+      {/* In-app Delete Confirmation Dialog */}
+      {pendingDeleteId !== null && (
+        <ConfirmDialog
+          title="Delete Rule"
+          message={`Are you sure you want to delete "${pendingDeleteRule?.name}"? This cannot be undone.`}
+          confirmLabel="Delete Rule"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

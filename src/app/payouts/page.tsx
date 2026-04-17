@@ -1,35 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Sidebar      from "@/components/Sidebar";
-import MobileNav    from "@/components/MobileNav";
+import { useState, useEffect }  from "react";
+import Sidebar                   from "@/components/Sidebar";
+import MobileNav                 from "@/components/MobileNav";
+import AddRecipientModal, { Recipient } from "@/components/AddRecipientModal";
 import { ArrowDownToLine, ArrowLeft, Plus, Landmark, Info } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useCurrency } from "@/context/CurrencyContext";
+import { useRouter }             from "next/navigation";
+import { useCurrency }           from "@/context/CurrencyContext";
 
-// ─── Constants ──────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────
 
-const RATE_PER_USD    = 1580;       // NGN per $1
-const RATE_LOCK_SECS  = 240;        // 4 minutes lock window (seconds)
-const AVAILABLE_USDC  = 250;        // Mock vault balance
+const RATE_PER_USD   = 1580;   // NGN per $1 (mock live rate)
+const RATE_LOCK_SECS = 240;    // 4-minute rate-lock window
+const AVAILABLE_USDC = 250;    // Mock vault balance
 
-// ─── Recent Recipients (Mock) ────────────────────────────────────────
+// ─── Seed recipients ────────────────────────────────────────────────
 
-interface Recipient {
-  id: number;
-  name: string;
-  avatar: string;
-}
-
-const RECIPIENTS: Recipient[] = [
-  { id: 1, name: "Edward",  avatar: "https://i.pravatar.cc/150?img=3"  },
-  { id: 2, name: "Murphy",  avatar: "https://i.pravatar.cc/150?img=4"  },
-  { id: 3, name: "Darwinz", avatar: "https://i.pravatar.cc/150?img=6"  },
-  { id: 4, name: "Kathryn", avatar: "https://i.pravatar.cc/150?img=47" },
-  { id: 5, name: "Anne",    avatar: "https://i.pravatar.cc/150?img=45" },
+const SEED_RECIPIENTS: Recipient[] = [
+  { id: 1, name: "Edward",  bank: "GTBank",     accountNumber: "0123456789", accountType: "Savings", avatar: "https://i.pravatar.cc/150?img=3"  },
+  { id: 2, name: "Murphy",  bank: "Zenith Bank", accountNumber: "1234567890", accountType: "Current", avatar: "https://i.pravatar.cc/150?img=4"  },
+  { id: 3, name: "Darwinz", bank: "Access Bank", accountNumber: "2345678901", accountType: "Savings", avatar: "https://i.pravatar.cc/150?img=6"  },
+  { id: 4, name: "Kathryn", bank: "First Bank",  accountNumber: "3456789012", accountType: "Savings", avatar: "https://i.pravatar.cc/150?img=47" },
+  { id: 5, name: "Anne",    bank: "UBA",         accountNumber: "4567890123", accountType: "Current", avatar: "https://i.pravatar.cc/150?img=45" },
 ];
 
-// ─── Helper: format MM:SS ────────────────────────────────────────────
+// ─── Helper: format seconds as MM:SS ───────────────────────────────
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -37,27 +32,37 @@ function formatTime(seconds: number) {
   return `${m}:${s}`;
 }
 
-// ─── Component ──────────────────────────────────────────────────────
+// ─── Page Component ─────────────────────────────────────────────────
 
 export default function PayoutsPage() {
-  const router = useRouter();
-  const { currency } = useCurrency();
+  const router              = useRouter();
+  const { currency }        = useCurrency();
 
-  const [amount, setAmount]             = useState("");
-  const [selectedRecipient, setRecipient] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft]         = useState(RATE_LOCK_SECS);
+  const [amount,            setAmount]      = useState("");
+  const [recipients,        setRecipients]  = useState<Recipient[]>(SEED_RECIPIENTS);
+  const [selectedId,        setSelectedId]  = useState<number>(SEED_RECIPIENTS[0].id);
+  const [isAddModalOpen,    setAddModal]    = useState(false);
+  const [timeLeft,          setTimeLeft]    = useState(RATE_LOCK_SECS);
 
-  // Count down the rate-lock timer
+  // Count down the rate-lock timer, then reset
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : RATE_LOCK_SECS));
-    }, 1000);
+    const interval = setInterval(() =>
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : RATE_LOCK_SECS)), 1000
+    );
     return () => clearInterval(interval);
   }, []);
 
   const numAmount   = parseFloat(amount) || 0;
   const ngnEquiv    = (numAmount * RATE_PER_USD).toLocaleString();
   const lockPercent = (timeLeft / RATE_LOCK_SECS) * 100;
+
+  const selectedRecipient = recipients.find((r) => r.id === selectedId) ?? recipients[0];
+
+  // Called by AddRecipientModal when the user saves a new account
+  const handleAddRecipient = (newRecipient: Recipient) => {
+    setRecipients((prev) => [...prev, newRecipient]);
+    setSelectedId(newRecipient.id); // auto-select the newly added recipient
+  };
 
   return (
     <div className="flex min-h-screen bg-[#0D1117] pb-20 md:pb-0">
@@ -70,11 +75,11 @@ export default function PayoutsPage() {
           <img
             src="/PayStepLogo-removebg.png"
             alt="Paysted"
-            className="h-7 w-auto md:hidden object-contain mb-5 brightness-0 invert"
+            className="h-7 w-auto md:hidden object-contain mb-5"
           />
 
           {/* ── Page Header ─────────────────────────────── */}
-          <header className="flex items-center gap-3 mb-8 relative">
+          <header className="flex items-center gap-3 mb-6">
             <button
               onClick={() => router.back()}
               className="p-2.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-slate-400 hover:text-white transition-all"
@@ -94,10 +99,16 @@ export default function PayoutsPage() {
 
             {/* Amount Input */}
             <div className="mb-5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3">
+              <label
+                htmlFor="payout-amount-input"
+                className="text-xs font-semibold text-slate-500 uppercase tracking-widest block mb-3"
+              >
                 Amount ({currency})
               </label>
-              <div className="flex items-center bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-4 focus-within:border-emerald-500/50 transition-all">
+              <div className="
+                flex items-center bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-4
+                focus-within:border-emerald-500/50 transition-all
+              ">
                 <span className="text-4xl font-extrabold text-slate-600 mr-2">$</span>
                 <input
                   id="payout-amount-input"
@@ -107,12 +118,15 @@ export default function PayoutsPage() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0"
-                  className="flex-1 bg-transparent border-none text-4xl font-extrabold text-white placeholder-slate-700 focus:outline-none"
+                  className="
+                    flex-1 bg-transparent text-4xl font-extrabold text-white
+                    placeholder-slate-700 focus:outline-none border-none
+                  "
                 />
               </div>
             </div>
 
-            {/* Live Rate + Rate Lock Bar */}
+            {/* Live Rate + Rate-Lock Bar */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-bold text-white">
@@ -125,7 +139,7 @@ export default function PayoutsPage() {
                 </div>
               </div>
 
-              {/* Progress bar for rate-lock countdown */}
+              {/* Countdown progress bar */}
               <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
                 <div
                   className="h-full rounded-full bg-emerald-500 transition-all duration-1000"
@@ -133,37 +147,40 @@ export default function PayoutsPage() {
                 />
               </div>
 
-              {/* NGN equivalent */}
+              {/* NGN equivalent for entered amount */}
               {numAmount > 0 && (
                 <p className="text-xs text-slate-400 font-medium mt-2">
-                  You'll receive ≈ <span className="text-white font-bold">₦{ngnEquiv}</span>
+                  You will receive ≈{" "}
+                  <span className="text-white font-bold">₦{ngnEquiv}</span>
                 </p>
               )}
             </div>
 
-            {/* ── Recent Recipients ───────────────────────── */}
+            {/* ── Recipients Row ───────────────────────────── */}
             <div className="mb-6">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">
                 Recent Recipients
               </p>
-              <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
-                {/* Add New button */}
+              <div className="flex items-center gap-3 overflow-x-auto pb-1">
+
+                {/* Add New — opens AddRecipientModal */}
                 <button
                   id="add-recipient-btn"
+                  onClick={() => setAddModal(true)}
                   className="flex flex-col items-center gap-1.5 flex-shrink-0"
                 >
-                  <div className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center shadow-md shadow-emerald-500/25">
+                  <div className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center shadow-md shadow-emerald-500/25 hover:bg-emerald-400 transition-colors">
                     <Plus size={20} className="text-white" />
                   </div>
                   <span className="text-[10px] text-slate-500 font-medium">New</span>
                 </button>
 
-                {/* Recipient avatars */}
-                {RECIPIENTS.map((r) => (
+                {/* Existing recipients */}
+                {recipients.map((r) => (
                   <button
                     key={r.id}
                     id={`recipient-${r.id}`}
-                    onClick={() => setRecipient(r.id)}
+                    onClick={() => setSelectedId(r.id)}
                     className="flex flex-col items-center gap-1.5 flex-shrink-0"
                   >
                     <img
@@ -171,12 +188,14 @@ export default function PayoutsPage() {
                       alt={r.name}
                       className={`
                         w-11 h-11 rounded-full object-cover transition-all
-                        ${selectedRecipient === r.id
+                        ${selectedId === r.id
                           ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-[#1a2235]"
-                          : "ring-1 ring-white/10"}
+                          : "ring-1 ring-white/10 hover:ring-white/20"}
                       `}
                     />
-                    <span className="text-[10px] text-slate-400 font-medium">{r.name}</span>
+                    <span className="text-[10px] text-slate-400 font-medium max-w-[44px] truncate">
+                      {r.name}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -185,15 +204,20 @@ export default function PayoutsPage() {
             {/* ── Selected Bank Account ───────────────────── */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/[0.06] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.06] flex items-center justify-center flex-shrink-0">
                   <Landmark size={18} className="text-slate-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white">GTBank</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Savings · **** 1234 · Tola Designer</p>
+                  <p className="text-sm font-bold text-white">{selectedRecipient.bank}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {selectedRecipient.accountType} · **** {selectedRecipient.accountNumber.slice(-4)} · {selectedRecipient.name}
+                  </p>
                 </div>
               </div>
-              <button className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
+              <button
+                onClick={() => setAddModal(true)}
+                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
                 Change
               </button>
             </div>
@@ -211,8 +235,7 @@ export default function PayoutsPage() {
                 py-4 rounded-xl
                 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600
                 text-white font-bold text-base
-                shadow-xl shadow-emerald-500/20 transition-all
-                active:scale-[0.99]
+                shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.99]
               "
             >
               <ArrowDownToLine size={20} />
@@ -224,6 +247,14 @@ export default function PayoutsPage() {
       </main>
 
       <MobileNav />
+
+      {/* Add Recipient Modal */}
+      {isAddModalOpen && (
+        <AddRecipientModal
+          onClose={() => setAddModal(false)}
+          onAdd={handleAddRecipient}
+        />
+      )}
     </div>
   );
 }

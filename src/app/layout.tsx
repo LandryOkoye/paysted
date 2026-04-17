@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { CurrencyProvider } from "@/context/CurrencyContext";
+import { RulesProvider }   from "@/context/RulesContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Paysted — Borderless Vault",
-  description: "Programmable savings vaults with intelligent rate execution for Africa.",
+  title: "Paysted",
+  description: "Anti-Inflation Wallet & Payroll for Gig Workers",
 };
 
 export default function RootLayout({
@@ -22,8 +23,11 @@ export default function RootLayout({
         className={`${inter.className} min-h-screen antialiased bg-[#0D1117] text-slate-100`}
         suppressHydrationWarning
       >
+        {/* Wrap with both providers so any page can access currency and rules */}
         <CurrencyProvider>
-          {children}
+          <RulesProvider>
+            {children}
+          </RulesProvider>
         </CurrencyProvider>
       </body>
     </html>

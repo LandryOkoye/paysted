@@ -1,10 +1,10 @@
-import Sidebar          from "@/components/Sidebar";
-import MobileNav        from "@/components/MobileNav";
-import VaultCard        from "@/components/VaultCard";
-import QuickActions     from "@/components/QuickAction";
+import Sidebar from "@/components/Sidebar";
+import MobileNav from "@/components/MobileNav";
+import VaultCard from "@/components/VaultCard";
+import QuickActions from "@/components/QuickAction";
 import VaultRulesSection from "@/components/VaultRulesSection";
-import ActivityFeed     from "@/components/ActivityFeed";
-import { Bell }         from "lucide-react";
+import ActivityFeed from "@/components/ActivityFeed";
+import { Bell } from "lucide-react";
 
 export default function DashboardPage() {
   return (

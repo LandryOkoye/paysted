@@ -1,47 +1,60 @@
 "use client";
 
 import { useState } from "react";
-import { X, Landmark } from "lucide-react";
+import { X, Landmark, Loader2 } from "lucide-react";
 
-// ─── Types ─────────────────────────────────────────────────────────
-
+// ─── Type matching the Busha recipient shape returned by POST /api/recipients ─
+// We keep a simplified local version for the UI list (not the full BushaRecipient)
 export interface Recipient {
-  id: number;
-  name: string;       // Account holder's name
-  bank: string;       // Bank name (e.g. GTBank)
-  accountNumber: string;
-  accountType: "Savings" | "Current";
-  avatar: string;     // Generated from initials
+  id:            string;  // Busha recipient ID (e.g. "64ae8c26ea1033204c805a8a")
+  name:          string;  // Account holder's name
+  bank:          string;  // Bank name (e.g. "GTBank")
+  accountNumber: string;  // 10-digit NUBAN number
+  bankCode:      string;  // Nigerian bank code (e.g. "058")
+  avatar:        string;  // Generated from initials via ui-avatars
 }
 
 interface AddRecipientModalProps {
   onClose: () => void;
-  onAdd: (recipient: Recipient) => void;
+  // Returns the newly created recipient so the parent can add it to the list
+  onAdd:   (recipient: Recipient) => void;
 }
 
-// Nigerian banks list for the select dropdown
-const NIGERIAN_BANKS = [
-  "GTBank", "First Bank", "Zenith Bank", "Access Bank",
-  "UBA", "Fidelity Bank", "Sterling Bank", "Wema Bank",
-  "Polaris Bank", "Stanbic IBTC", "FCMB", "Ecobank",
-  "Union Bank", "Heritage Bank", "Keystone Bank",
+// Nigerian banks with their NUBAN bank codes
+// Bank codes are required by the Busha API in the `fields` array
+const NIGERIAN_BANKS: { name: string; code: string }[] = [
+  { name: "GTBank",      code: "058"    },
+  { name: "First Bank",  code: "011"    },
+  { name: "Zenith Bank", code: "057"    },
+  { name: "Access Bank", code: "044"    },
+  { name: "UBA",         code: "033"    },
+  { name: "Fidelity Bank", code: "070"  },
+  { name: "Sterling Bank", code: "232"  },
+  { name: "Wema Bank",   code: "035"    },
+  { name: "Polaris Bank",code: "076"    },
+  { name: "Stanbic IBTC",code: "221"   },
+  { name: "FCMB",        code: "214"    },
+  { name: "Ecobank",     code: "050"    },
+  { name: "Union Bank",  code: "032"    },
+  { name: "Keystone Bank",code: "082"   },
 ];
 
-// ─── Component ──────────────────────────────────────────────────────
-
 export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalProps) {
-  const [name,          setName]          = useState("");
-  const [bank,          setBank]          = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountType,   setAccountType]   = useState<"Savings" | "Current">("Savings");
-  const [error,         setError]         = useState("");
+  // Form fields
+  const [accountName,   setAccountName]   = useState("");  // → Busha fields: account_name
+  const [selectedBank,  setSelectedBank]  = useState("");  // → Busha fields: bank_name + bank_code
+  const [accountNumber, setAccountNumber] = useState("");  // → Busha fields: account_number
+
+  // UI state
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
 
   const isValid =
-    name.trim().length > 1 &&
-    bank !== "" &&
+    accountName.trim().length > 1 &&
+    selectedBank !== "" &&
     accountNumber.replace(/\D/g, "").length === 10;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -50,18 +63,53 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
       return;
     }
 
-    // Build recipient and pass it up — let the parent manage the list
-    const newRecipient: Recipient = {
-      id: Date.now(),
-      name: name.trim(),
-      bank,
-      accountNumber: accountNumber.replace(/\D/g, ""),
-      accountType,
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name.trim())}&background=10b981&color=fff`,
-    };
+    const bank = NIGERIAN_BANKS.find((b) => b.name === selectedBank);
+    if (!bank) {
+      setError("Please select a valid bank.");
+      return;
+    }
 
-    onAdd(newRecipient);
-    onClose();
+    setLoading(true);
+
+    try {
+      // Call POST /api/recipients → Busha POST /v1/recipients
+      // Busha registers the bank account and returns a recipient.id we can use for transfers
+      const res = await fetch("/api/recipients", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountName:   accountName.trim(),
+          bankName:      bank.name,
+          bankCode:      bank.code,
+          accountNumber: accountNumber.replace(/\D/g, ""),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error ?? "Failed to save recipient");
+      }
+
+      // Build a simplified recipient object for the UI list
+      // `data.recipient.id` is the Busha-generated ID needed for future transfers
+      const newRecipient: Recipient = {
+        id:            data.recipient.id,
+        name:          accountName.trim(),
+        bank:          bank.name,
+        bankCode:      bank.code,
+        accountNumber: accountNumber.replace(/\D/g, ""),
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(accountName.trim())}&background=10b981&color=fff`,
+      };
+
+      onAdd(newRecipient);
+      onClose();
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -81,7 +129,7 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
             </div>
             <div>
               <h2 className="text-base font-bold text-white">Add Bank Account</h2>
-              <p className="text-xs text-slate-500">Save a new payout recipient.</p>
+              <p className="text-xs text-slate-500">Register a new payout recipient.</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
@@ -92,7 +140,7 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
 
-          {/* Account Holder Name */}
+          {/* Account Holder Name → Busha: account_name */}
           <div>
             <label
               htmlFor="recipient-name"
@@ -105,8 +153,8 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
               type="text"
               required
               autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
               placeholder="e.g. Tola Designer"
               className="
                 w-full px-4 py-3 rounded-xl text-sm text-white
@@ -118,7 +166,7 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
             />
           </div>
 
-          {/* Bank Name */}
+          {/* Bank Name → Busha: bank_name + bank_code (both sent from the selected entry) */}
           <div>
             <label
               htmlFor="recipient-bank"
@@ -129,8 +177,8 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
             <select
               id="recipient-bank"
               required
-              value={bank}
-              onChange={(e) => setBank(e.target.value)}
+              value={selectedBank}
+              onChange={(e) => setSelectedBank(e.target.value)}
               className="
                 w-full px-4 py-3 rounded-xl text-sm text-white
                 bg-white/[0.05] border border-white/[0.10]
@@ -140,12 +188,14 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
             >
               <option value="" disabled className="bg-[#111827]">Select a bank</option>
               {NIGERIAN_BANKS.map((b) => (
-                <option key={b} value={b} className="bg-[#111827]">{b}</option>
+                <option key={b.code} value={b.name} className="bg-[#111827]">
+                  {b.name}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Account Number */}
+          {/* Account Number → Busha: account_number (10-digit NUBAN) */}
           <div>
             <label
               htmlFor="recipient-account-number"
@@ -175,30 +225,6 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
             </p>
           </div>
 
-          {/* Account Type toggle */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-              Account Type
-            </label>
-            <div className="flex bg-white/[0.04] p-1 rounded-xl border border-white/[0.06]">
-              {(["Savings", "Current"] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setAccountType(type)}
-                  className={`
-                    flex-1 py-2 rounded-lg text-sm font-semibold transition-all
-                    ${accountType === type
-                      ? "bg-white/[0.10] text-white border border-white/[0.12]"
-                      : "text-slate-500 hover:text-slate-300"}
-                  `}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Error message */}
           {error && (
             <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-lg">
@@ -210,15 +236,20 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
           <button
             id="add-recipient-submit"
             type="submit"
-            disabled={!isValid}
+            disabled={!isValid || loading}
             className={`
               w-full py-3.5 rounded-xl text-sm font-bold transition-all
-              ${isValid
+              flex items-center justify-center gap-2
+              ${isValid && !loading
                 ? "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20"
                 : "bg-white/[0.06] text-slate-500 cursor-not-allowed"}
             `}
           >
-            Save Recipient
+            {loading ? (
+              <><Loader2 size={16} className="animate-spin" /> Saving…</>
+            ) : (
+              "Save Recipient"
+            )}
           </button>
 
         </form>

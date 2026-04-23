@@ -1,46 +1,87 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Sidebar   from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
-import { Plus, Search, Filter, MoreVertical, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Plus, Search, MoreVertical, ArrowLeft, Loader2, ExternalLink, Copy, Check } from "lucide-react";
+import Link      from "next/link";
 import { useRouter } from "next/navigation";
+import type { BushaPaymentLink } from "@/lib/busha.types";
 
-// ─── Types ─────────────────────────────────────────────────────────
-
-type InvoiceStatus = "Paid" | "Pending" | "Overdue" | "Draft";
-
-interface Invoice {
-  id: string;
-  client: string;
-  amount: string;
-  status: InvoiceStatus;
-  date: string;
-  avatar: string;
-}
-
-// ─── Mock Data ──────────────────────────────────────────────────────
-
-const INVOICES: Invoice[] = [
-  { id: "INV-2023-001", client: "Acme Corp",     amount: "$1,250.00", status: "Paid",    date: "Oct 24, 2023", avatar: "https://i.pravatar.cc/150?img=11" },
-  { id: "INV-2023-002", client: "Globex Inc",    amount: "$3,400.00", status: "Pending", date: "Nov 02, 2023", avatar: "https://i.pravatar.cc/150?img=12" },
-  { id: "INV-2023-003", client: "Initech",       amount: "$850.00",   status: "Overdue", date: "Oct 15, 2023", avatar: "https://i.pravatar.cc/150?img=15" },
-  { id: "INV-2023-004", client: "Soylent",       amount: "$2,100.00", status: "Draft",   date: "Nov 05, 2023", avatar: "https://i.pravatar.cc/150?img=5"  },
-  { id: "INV-2023-005", client: "Umbrella Corp", amount: "$4,500.00", status: "Paid",    date: "Sep 30, 2023", avatar: "https://i.pravatar.cc/150?img=9"  },
-];
-
-// Status colour config
-const STATUS_STYLES: Record<InvoiceStatus, string> = {
-  Paid:    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  Pending: "bg-amber-500/10  text-amber-400   border-amber-500/20",
-  Overdue: "bg-rose-500/10   text-rose-400    border-rose-500/20",
-  Draft:   "bg-white/[0.06]  text-slate-400   border-white/[0.10]",
+// ─── Status mapping ────────────────────────────────────────────────────────────
+// Maps Busha's link status values to display labels and styles
+const STATUS_STYLES: Record<string, string> = {
+  active:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  pending: "bg-amber-500/10  text-amber-400   border-amber-500/20",
+  expired: "bg-rose-500/10   text-rose-400    border-rose-500/20",
+  draft:   "bg-white/[0.06]  text-slate-400   border-white/[0.10]",
+  deleted: "bg-white/[0.06]  text-slate-500   border-white/[0.10]",
 };
 
-// ─── Component ──────────────────────────────────────────────────────
+const STATUS_LABELS: Record<string, string> = {
+  active:  "Active",
+  pending: "Pending",
+  expired: "Expired",
+  draft:   "Draft",
+  deleted: "Deleted",
+};
 
+// ─── Helper: format date ──────────────────────────────────────────────────────
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day:   "numeric",
+    year:  "numeric",
+  });
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function InvoicesPage() {
   const router = useRouter();
+
+  // Payment links fetched from GET /api/invoices → Busha GET /v1/payments/links
+  const [invoices,  setInvoices]  = useState<BushaPaymentLink[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [fetchErr,  setFetchErr]  = useState<string | null>(null);
+
+  // Search/filter state (client-side filtering over the fetched list)
+  const [search,    setSearch]    = useState("");
+
+  // Copy-link state: stores the ID of the link currently being copied
+  const [copiedId,  setCopiedId]  = useState<string | null>(null);
+
+  // ── Fetch payment links on mount ────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/invoices")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          // `data.invoices` is an array of BushaPaymentLink objects
+          setInvoices(data.invoices ?? []);
+        } else {
+          setFetchErr(data.error ?? "Failed to load payment links");
+        }
+      })
+      .catch(() => setFetchErr("Network error — could not reach the server"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // ── Copy a payment link URL to clipboard ────────────────────────────────────
+  const handleCopy = (linkId: string, linkUrl: string) => {
+    navigator.clipboard.writeText(linkUrl).catch(() => {});
+    setCopiedId(linkId);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  // ── Client-side filter by name, title, or id ────────────────────────────────
+  const filtered = invoices.filter((inv) => {
+    const q = search.toLowerCase();
+    return (
+      inv.name.toLowerCase().includes(q)  ||
+      inv.title.toLowerCase().includes(q) ||
+      inv.id.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="flex min-h-screen bg-[#0D1117] pb-20 md:pb-0">
@@ -66,13 +107,14 @@ export default function InvoicesPage() {
                 <ArrowLeft size={18} />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">Invoices</h1>
+                <h1 className="text-2xl font-bold text-white">Payment Links</h1>
                 <p className="text-sm text-slate-500 mt-0.5 hidden sm:block">
-                  Manage, track, and create professional payment links.
+                  Manage and track all your Busha payment links.
                 </p>
               </div>
             </div>
 
+            {/* Create new link → navigates to /generate-link form */}
             <Link
               href="/generate-link"
               id="create-invoice-btn"
@@ -83,21 +125,23 @@ export default function InvoicesPage() {
                 shadow-lg shadow-emerald-500/20 transition-all
               "
             >
-              <Plus size={16} /> Create Invoice
+              <Plus size={16} /> Create Link
             </Link>
           </header>
 
           {/* ── Table Card ──────────────────────────────── */}
           <div className="rounded-2xl bg-[#1a2235] border border-white/[0.06] overflow-hidden">
 
-            {/* Search + Filter toolbar */}
+            {/* Search toolbar */}
             <div className="flex items-center gap-3 p-4 border-b border-white/[0.06] flex-col sm:flex-row">
               <div className="relative w-full sm:max-w-xs">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   id="invoice-search"
                   type="text"
-                  placeholder="Search client or ID..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, title, or ID..."
                   className="
                     w-full pl-9 pr-4 py-2.5 rounded-xl text-sm
                     bg-white/[0.04] border border-white/[0.08]
@@ -107,90 +151,168 @@ export default function InvoicesPage() {
                   "
                 />
               </div>
-              <button
-                id="invoice-filter-btn"
-                className="
-                  flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
-                  bg-white/[0.04] border border-white/[0.08] text-slate-300
-                  hover:bg-white/[0.08] transition-all w-full sm:w-auto justify-center
-                "
-              >
-                <Filter size={15} /> Filters
-              </button>
+
+              {/* Live count label */}
+              {!loading && !fetchErr && (
+                <span className="text-xs text-slate-500 font-medium ml-auto whitespace-nowrap">
+                  {filtered.length} link{filtered.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </div>
 
-            {/* Table — scrollable on small screens */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[680px]">
-                <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    {["Client", "Invoice ID", "Amount", "Status", "Date", ""].map((col) => (
-                      <th key={col} className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.04]">
-                  {INVOICES.map((inv) => (
-                    <tr
-                      key={inv.id}
-                      className="hover:bg-white/[0.02] transition-colors cursor-pointer"
-                    >
-                      {/* Client */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={inv.avatar}
-                            alt={inv.client}
-                            className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
-                          />
-                          <span className="text-sm font-semibold text-white">{inv.client}</span>
-                        </div>
-                      </td>
+            {/* ── Loading state ─────────────────────────── */}
+            {loading && (
+              <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
+                <Loader2 size={20} className="animate-spin" />
+                <span className="text-sm">Loading payment links from Busha…</span>
+              </div>
+            )}
 
-                      {/* Invoice ID */}
-                      <td className="px-5 py-4 text-sm text-slate-400 font-medium">{inv.id}</td>
-
-                      {/* Amount */}
-                      <td className="px-5 py-4 text-sm font-bold text-white">{inv.amount}</td>
-
-                      {/* Status badge */}
-                      <td className="px-5 py-4">
-                        <span className={`px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg border ${STATUS_STYLES[inv.status]}`}>
-                          {inv.status}
-                        </span>
-                      </td>
-
-                      {/* Date */}
-                      <td className="px-5 py-4 text-sm text-slate-400 font-medium">{inv.date}</td>
-
-                      {/* Action menu */}
-                      <td className="px-5 py-4 text-right">
-                        <button className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.06] transition-all">
-                          <MoreVertical size={17} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between px-5 py-4 border-t border-white/[0.06]">
-              <span className="text-sm text-slate-500 font-medium">Showing 1–5 of 24 entries</span>
-              <div className="flex items-center gap-2">
-                <button className="px-4 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm font-semibold text-slate-400 hover:bg-white/[0.08] transition-all">
-                  Prev
-                </button>
-                <button className="px-4 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-sm font-semibold text-slate-400 hover:bg-white/[0.08] transition-all">
-                  Next
+            {/* ── Error state ───────────────────────────── */}
+            {!loading && fetchErr && (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 px-4 py-3 rounded-xl">
+                  {fetchErr}
+                </p>
+                <button
+                  onClick={() => { setLoading(true); setFetchErr(null); }}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
+                >
+                  Retry
                 </button>
               </div>
-            </div>
-          </div>
+            )}
 
+            {/* ── Empty state ───────────────────────────── */}
+            {!loading && !fetchErr && filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <p className="text-sm text-slate-500">
+                  {search ? "No links match your search." : "No payment links yet."}
+                </p>
+                {!search && (
+                  <Link
+                    href="/generate-link"
+                    className="
+                      flex items-center gap-2 px-4 py-2.5 rounded-xl
+                      bg-emerald-500 hover:bg-emerald-400
+                      text-white text-sm font-bold transition-all
+                    "
+                  >
+                    <Plus size={15} /> Create your first link
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* ── Table ────────────────────────────────── */}
+            {!loading && !fetchErr && filtered.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-white/[0.06]">
+                      {["Name / Title", "Link ID", "Amount", "Currency", "Status", "Created", ""].map((col) => (
+                        <th
+                          key={col}
+                          className="px-5 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-widest"
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {filtered.map((inv) => (
+                      <tr
+                        key={inv.id}
+                        className="hover:bg-white/[0.02] transition-colors"
+                      >
+                        {/* Name + Title */}
+                        <td className="px-5 py-4">
+                          <p className="text-sm font-semibold text-white truncate max-w-[160px]">
+                            {inv.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[160px]">
+                            {inv.name}
+                          </p>
+                        </td>
+
+                        {/* Busha link ID */}
+                        <td className="px-5 py-4 text-xs text-slate-400 font-mono">
+                          {inv.id.slice(0, 18)}…
+                        </td>
+
+                        {/* Amount */}
+                        <td className="px-5 py-4 text-sm font-bold text-white">
+                          ${parseFloat(inv.target_amount || "0").toFixed(2)}
+                        </td>
+
+                        {/* Currency */}
+                        <td className="px-5 py-4 text-sm text-slate-400 font-medium">
+                          {inv.target_currency}
+                        </td>
+
+                        {/* Status badge */}
+                        <td className="px-5 py-4">
+                          <span className={`
+                            px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg border
+                            ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}
+                          `}>
+                            {STATUS_LABELS[inv.status] ?? inv.status}
+                          </span>
+                        </td>
+
+                        {/* Date */}
+                        <td className="px-5 py-4 text-sm text-slate-400 font-medium">
+                          {formatDate(inv.created_at)}
+                        </td>
+
+                        {/* Actions: copy + open */}
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Copy the hosted payment link URL */}
+                            <button
+                              title="Copy payment link"
+                              onClick={() => handleCopy(inv.id, inv.link)}
+                              className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.06] transition-all"
+                            >
+                              {copiedId === inv.id
+                                ? <Check size={15} className="text-emerald-400" />
+                                : <Copy size={15} />}
+                            </button>
+
+                            {/* Open the hosted Busha payment page */}
+                            <a
+                              href={inv.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open payment page"
+                              className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.06] transition-all"
+                            >
+                              <ExternalLink size={15} />
+                            </a>
+
+                            <button className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.06] transition-all">
+                              <MoreVertical size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Footer count */}
+            {!loading && !fetchErr && filtered.length > 0 && (
+              <div className="flex items-center justify-between px-5 py-4 border-t border-white/[0.06]">
+                <span className="text-sm text-slate-500 font-medium">
+                  Showing {filtered.length} of {invoices.length} links
+                </span>
+              </div>
+            )}
+
+          </div>
         </div>
       </main>
 

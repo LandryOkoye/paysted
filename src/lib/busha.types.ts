@@ -88,6 +88,12 @@ export interface BushaCreatePaymentLinkPayload {
     description: string;
     target_currency: string;
     target_amount?: string;
+    // require_extra_info: fields Busha collects from the payer on the payment page.
+    // At minimum, email must be included — confirmed by the Busha API.
+    require_extra_info: Array<{
+        field_name: string;  // e.g. "email", "phone", "name"
+        required:   boolean; // whether the field is mandatory for the payer
+    }>;
     quote_amount?: string;
     quote_currency?: string;
     dry_run?: boolean;

@@ -26,6 +26,12 @@ In an economy characterized by FX volatility, traditional banking often falls sh
 - **Direct-to-Bank**: Withdraw your stablecoin balance directly to any Nigerian bank account.
 - **Competitive Rates**: Automated conversion at market-leading FX rates.
 - **Instant Processing**: Minimize wait times for local liquidity.
+- **Recipient Management**: Easily add, manage, and select multiple bank accounts for withdrawals.
+
+###  Automation & Rules
+- **Custom Triggers**: Set up automated rules to manage your vault balances based on predefined conditions.
+- **Real-Time Sync**: Automation settings and rule updates instantly reflect across your entire dashboard.
+- **Safe Controls**: Built-in confirmations for destructive actions to prevent accidental changes.
 
 ###  Comprehensive Insights
 - **Transaction Ledger**: A detailed "Vault Ledger" for auditing every deposit, swap, and withdrawal.

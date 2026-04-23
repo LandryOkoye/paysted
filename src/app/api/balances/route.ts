@@ -1,24 +1,41 @@
-import { NextResponse } from 'next/server';
 
+import { NextResponse } from "next/server";
+import { bushaFetch } from "@/lib/busha";
+import type {
+  BushaBalance,
+  BushaPaginatedResponse,
+} from "@/lib/busha.types";
+
+// GET /api/balances
 export async function GET() {
   try {
-    // TODO: Integrate Busha Balances API
-    // 1. Fetch authenticated user from session/JWT
-    // 2. Query Postgres ledger for internal balance OR
-    // 3. Query Busha API for total vaulted USDC
+    const response = await bushaFetch<BushaPaginatedResponse<BushaBalance>>("/balances");
 
-    const mockBalance = {
-      asset: 'USDC',
-      balance: '1250.00',
-      fiat_equivalent: '1875000.00',
-      fiat_currency: 'NGN'
-    };
+    const cur = response.data.find((balance) => balance.currency === "USDC" || "USDT");
+
+    if (!cur) {
+      return NextResponse.json(
+        {
+          success: true,
+          vault: null,
+          message: "No USDC balance found on this account",
+        },
+        { status: 200 }
+      );
+    }
+
 
     return NextResponse.json(
-      { success: true, vault: mockBalance },
+      { success: true, vault: cur },
       { status: 200 }
     );
+
   } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to query vault balance' }, { status: 500 });
+
+    console.error("[/api/balances GET] Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch vault balance" },
+      { status: 500 }
+    );
   }
 }

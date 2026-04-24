@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { name: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { name: "Vault",     icon: Wallet,          href: "/vault" },
-  { name: "Rules",     icon: Zap,             href: "/rules" },
-  { name: "Invoices",  icon: Receipt,         href: "/invoices" },
-  { name: "Settings",  icon: Settings,        href: "/settings" },
+  { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+  { name: "Vault", icon: Wallet, href: "/vault" },
+  { name: "Rules", icon: Zap, href: "/rules" },
+  { name: "Invoices", icon: Receipt, href: "/invoices" },
+  { name: "Settings", icon: Settings, href: "/settings" },
 ];
 
 export default function Sidebar() {

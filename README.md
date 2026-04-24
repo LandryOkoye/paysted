@@ -36,6 +36,9 @@ In an economy characterized by FX volatility, traditional banking often falls sh
 ###  Comprehensive Insights
 - **Transaction Ledger**: A detailed "Vault Ledger" for auditing every deposit, swap, and withdrawal.
 - **Activity Feed**: Stay informed with real-time notifications on payment arrivals and payouts.
+---
+
+I created a presentation for Paysted: [Paysted Presentation](https://paysted-presentation-132979507172.europe-west2.run.app/)
 
 ---
 

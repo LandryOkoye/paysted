@@ -240,27 +240,30 @@ export default function GenerateLinkPage() {
                 </div>
 
                 {/* Amount + Currency — maps to `target_amount` and `target_currency` */}
+                {/* When fixed=false the payer sets their own amount, so this field is optional */}
                 <div>
                   <label htmlFor="invoice-amount" className={LABEL_CLS}>
-                    Amount &amp; Currency <span className="text-emerald-500">*</span>
+                    Amount &amp; Currency
+                    {fixed && <span className="text-emerald-500"> *</span>}
                   </label>
                   <div className="flex gap-2">
 
-                    {/* Amount */}
+                    {/* Amount — required only when fixed=true */}
                     <div className="relative flex-1">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">
                         $
                       </span>
                       <input
                         id="invoice-amount"
-                        required
+                        required={fixed}          // only required when locking the amount
                         type="number"
                         min="0.01"
                         step="0.01"
                         value={amount}
+                        disabled={!fixed}         // greyed out when payer sets their own amount
                         onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                        className={`${INPUT_CLS} pl-8`}
+                        placeholder={fixed ? "0.00" : "Payer will set the amount"}
+                        className={`${INPUT_CLS} pl-8 ${!fixed ? "opacity-40 cursor-not-allowed" : ""}`}
                       />
                     </div>
 
@@ -284,6 +287,13 @@ export default function GenerateLinkPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Contextual hint below the amount field */}
+                  {!fixed && (
+                    <p className="text-[11px] text-slate-500 mt-1.5">
+                      The payer will enter their own amount on the payment page.
+                    </p>
+                  )}
                 </div>
 
                 {/* Fixed amount toggle — maps to Busha `fixed` (required boolean) */}

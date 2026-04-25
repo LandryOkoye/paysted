@@ -1,15 +1,6 @@
-// src/app/api/invoices/route.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// Creates and lists Busha payment links.
-// Busha endpoint: POST /v1/payments/links  |  GET /v1/payments/links
-//
-// IMPORTANT: Busha requires `require_extra_info` in every payment link payload.
-// This tells Busha which fields to collect from the PAYER on the payment page.
-// At minimum, email must be included — confirmed from live API testing.
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { NextResponse } from "next/server";
-import { bushaFetch }   from "@/lib/busha";
+import { bushaFetch } from "@/lib/busha";
 import type {
   BushaPaymentLink,
   BushaCreatePaymentLinkPayload,
@@ -24,42 +15,44 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: Request) {
   try {
-    // 1. Parse the UI form fields from the request body
     const body = await request.json();
     const {
-      name,               // Required (Busha: `name`)            — internal dashboard label
-      title,              // Required (Busha: `title`)            — shown to payer on payment page
-      description,        // Required (Busha: `description`)      — shown to payer on payment page
-      currency = "USDC",  // Required (Busha: `target_currency`)  — "USDC" or "USDT"
-      amount,             // Required (Busha: `target_amount`)    — decimal string
-      fixed    = true,    // Required (Busha: `fixed`)            — lock the amount?
-      oneTime  = false,   // Required (Busha: `one_time`)         — expire after one payment?
+      name,
+      title,
+      description,
+      currency = "USDC",
+      amount,
+      fixed = true,
+      oneTime = false,
     } = body;
 
-    // 2. Validate all required fields before calling Busha
     if (!name || !title || !description) {
       return NextResponse.json(
         { success: false, error: "name, title, and description are all required" },
         { status: 400 }
       );
     }
-    if (!amount || isNaN(Number(amount))) {
+    // `target_amount` is only required when fixed=true.
+    // When fixed=false the payer enters their own amount on the Busha payment page,
+    // so we must NOT send target_amount in the payload (Busha will reject it).
+    if (fixed && (!amount || isNaN(Number(amount)))) {
       return NextResponse.json(
-        { success: false, error: "A valid numeric amount is required" },
+        { success: false, error: "A valid numeric amount is required when the amount is fixed" },
         { status: 400 }
       );
     }
 
-    // 3. Build the exact Busha payload — all confirmed required fields included
     const payload: BushaCreatePaymentLinkPayload = {
-      type:            "payment_link", // Always payment_link (not invoice)
-      fixed,                           // Boolean: lock the amount?
-      one_time:        oneTime,        // Boolean: camelCase → snake_case
+      type: "payment_link",
+      fixed,
+      one_time: oneTime,
       name,
       title,
       description,
       target_currency: currency,
-      target_amount:   String(amount),
+      // Only include target_amount when fixed=true.
+      // Omitting it when fixed=false lets the payer choose their amount.
+      ...(fixed && amount ? { target_amount: String(amount) } : {}),
 
       // require_extra_info: tells Busha which fields to collect from the PAYER.
       // This is NOT about the creator's details — it's the payer's info Busha collects
@@ -69,10 +62,9 @@ export async function POST(request: Request) {
       ],
     };
 
-    // 4. Call Busha: POST /v1/payments/links
     const result = await bushaFetch<BushaResponse<BushaPaymentLink>>("/payments/links", {
       method: "POST",
-      body:   JSON.stringify(payload),
+      body: JSON.stringify(payload),
     });
 
     const link = result.data;
@@ -92,9 +84,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        url:     paymentUrl,
-        id:      link.id,
-        status:  link.status,
+        url: paymentUrl,
+        id: link.id,
+        status: link.status,
       },
       { status: 201 }
     );

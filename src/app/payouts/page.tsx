@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar        from "@/components/Sidebar";
 import MobileNav      from "@/components/MobileNav";
 import AddRecipientModal, { Recipient } from "@/components/AddRecipientModal";
-import { ArrowDownToLine, ArrowLeft, Plus, Landmark, Info, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, Plus, Landmark, Info, Loader2, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { useRouter }  from "next/navigation";
 import { useCurrency } from "@/context/CurrencyContext";
 import type { BushaBalance } from "@/lib/busha.types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const RATE_PER_USD   = 1580;   // NGN per $1 — replace with live quotes API rate
-const RATE_LOCK_SECS = 240;    // 4-minute rate-lock window visual
+const RATE_LOCK_SECS = 240;  // 4-minute visual rate-lock window
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 function formatTime(seconds: number) {
@@ -34,6 +33,11 @@ export default function PayoutsPage() {
   const [recipLoading,   setRecipLoading]  = useState(true);
   const [selectedId,     setSelectedId]    = useState<string | null>(null);
 
+  // ── Live rate from Busha Quotes API ──────────────────────────────────────
+  const [rate,           setRate]          = useState<number | null>(null);
+  const [rateLoading,    setRateLoading]   = useState(true);
+  const [rateError,      setRateError]     = useState(false);
+
   // ── Modal + form state ────────────────────────────────────────────────────
   const [isAddModalOpen, setAddModal]      = useState(false);
   const [amount,         setAmount]        = useState("");
@@ -42,6 +46,9 @@ export default function PayoutsPage() {
   // ── Payout submission state ───────────────────────────────────────────────
   const [payoutStatus,   setPayoutStatus]  = useState<"idle" | "loading" | "success" | "error">("idle");
   const [payoutMessage,  setPayoutMessage] = useState("");
+
+  // ── Ref to avoid stale closure in the countdown effect ───────────────────
+  const fetchRateRef = useRef<() => void>(() => {});
 
   // ── Fetch live USDC balance on mount ─────────────────────────────────────
   useEffect(() => {
@@ -54,8 +61,33 @@ export default function PayoutsPage() {
       .finally(() => setBalanceLoading(false));
   }, []);
 
+  // ── Fetch live USDC→NGN rate from Busha Quotes API ───────────────────────
+  const fetchRate = useCallback(async () => {
+    setRateLoading(true);
+    setRateError(false);
+    try {
+      const res  = await fetch("/api/rate");
+      const data = await res.json();
+      if (data.success && typeof data.rate === "number") {
+        setRate(data.rate);
+        setTimeLeft(RATE_LOCK_SECS);  // reset countdown on fresh rate
+      } else {
+        setRateError(true);
+      }
+    } catch {
+      setRateError(true);
+    } finally {
+      setRateLoading(false);
+    }
+  }, []);
+
+  // Store latest fetchRate in ref so countdown effect can call it
+  useEffect(() => { fetchRateRef.current = fetchRate; }, [fetchRate]);
+
+  // Fetch rate on mount
+  useEffect(() => { fetchRate(); }, [fetchRate]);
+
   // ── Fetch saved recipients on mount ──────────────────────────────────────
-  // Loads from GET /api/recipients → Busha GET /v1/recipients
   const fetchRecipients = useCallback(async () => {
     setRecipLoading(true);
     try {
@@ -63,12 +95,10 @@ export default function PayoutsPage() {
       const data = await res.json();
 
       if (data.success && data.recipients.length > 0) {
-        // Map BushaRecipient to our local Recipient shape
         const mapped: Recipient[] = data.recipients.map((r: {
           id: string;
           fields: Array<{ name: string; value: string }>;
         }) => {
-          // Busha stores fields as an array — extract values by name
           const get = (name: string) =>
             r.fields.find((f) => f.name === name)?.value ?? "";
 
@@ -94,33 +124,36 @@ export default function PayoutsPage() {
 
   useEffect(() => { fetchRecipients(); }, []);
 
-  // ── Rate-lock countdown ────────────────────────────────────────────────
+  // ── Rate-lock countdown — auto-refresh rate when it hits 0 ───────────────
   useEffect(() => {
-    const interval = setInterval(() =>
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : RATE_LOCK_SECS)), 1000
-    );
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          fetchRateRef.current();  // refresh rate when countdown expires
+          return RATE_LOCK_SECS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // ── Derived values ────────────────────────────────────────────────────
-  const numAmount        = parseFloat(amount) || 0;
-  const ngnEquiv         = (numAmount * RATE_PER_USD).toLocaleString();
-  const lockPercent      = (timeLeft / RATE_LOCK_SECS) * 100;
-  const availableUsdc    = parseFloat(vault?.available?.amount ?? "0");
+  // ── Derived values ────────────────────────────────────────────────────────
+  const numAmount         = parseFloat(amount) || 0;
+  const ngnEquiv          = rate ? (numAmount * rate).toLocaleString("en-NG", { maximumFractionDigits: 0 }) : "—";
+  const lockPercent       = (timeLeft / RATE_LOCK_SECS) * 100;
+  const availableUsdc     = parseFloat(vault?.available?.amount ?? "0");
   const selectedRecipient = recipients.find((r) => r.id === selectedId) ?? null;
 
-  // ── Handle newly added recipient ──────────────────────────────────────
-  // Called by AddRecipientModal after successfully calling POST /api/recipients
+  // ── Handle newly added recipient ──────────────────────────────────────────
   const handleAddRecipient = (newRecipient: Recipient) => {
     setRecipients((prev) => [...prev, newRecipient]);
     setSelectedId(newRecipient.id);
   };
 
-  // ── Handle payout submission ──────────────────────────────────────────
-  // ⚠️ Full payout flow requires a quoteId from the Quotes API first.
-  // Step 1 (done):  Select recipient (registered via POST /api/recipients)
-  // Step 2 (TODO):  Create quote via POST /v1/quotes → get quoteId
-  // Step 3 (ready): POST /api/payouts with { quoteId }
+  // ── Handle payout submission ──────────────────────────────────────────────
+  // Full flow: POST /api/rate (create quote for real amount) → get quoteId
+  //            POST /api/payouts { quoteId } → execute transfer on Busha
   const handleWithdraw = async () => {
     if (!amount || numAmount <= 0) {
       setPayoutStatus("error");
@@ -138,15 +171,48 @@ export default function PayoutsPage() {
       return;
     }
 
-    // NOTE: A real payout needs a quoteId from POST /v1/quotes.
-    // The Quotes endpoint locks the USDC→NGN exchange rate for this transfer.
-    // Once /api/quotes is implemented, replace the alert below with the quote flow.
-    setPayoutStatus("error");
-    setPayoutMessage(
-      "To complete a payout, a Quote must be created first (POST /v1/quotes) to lock the exchange rate. " +
-      "The /api/quotes endpoint will be implemented in the next step."
-    );
+    setPayoutStatus("loading");
+    setPayoutMessage("");
+
+    try {
+      // Step 1: Create a real quote for the exact USDC amount → locked rate + quoteId
+      const quoteRes  = await fetch("/api/rate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ amount }),
+      });
+      const quoteData = await quoteRes.json();
+
+      if (!quoteRes.ok || !quoteData.success) {
+        throw new Error(quoteData.error ?? "Failed to lock exchange rate.");
+      }
+
+      // Step 2: Execute the transfer using the locked quoteId
+      const payoutRes  = await fetch("/api/payouts", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ quoteId: quoteData.quoteId }),
+      });
+      const payoutData = await payoutRes.json();
+
+      if (!payoutRes.ok || !payoutData.success) {
+        throw new Error(payoutData.error ?? "Payout failed.");
+      }
+
+      setPayoutStatus("success");
+      setPayoutMessage(
+        `Payout of $${amount} initiated! Transaction ID: ${payoutData.transactionId}. ` +
+        `₦${quoteData.targetAmount ? Number(quoteData.targetAmount).toLocaleString("en-NG") : ngnEquiv} will arrive shortly.`
+      );
+      setAmount("");
+      fetchRate();  // refresh rate after payout
+
+    } catch (err) {
+      setPayoutStatus("error");
+      setPayoutMessage(err instanceof Error ? err.message : "Something went wrong.");
+    }
   };
+
 
   return (
     <div className="flex min-h-screen bg-[#0D1117] pb-20 md:pb-0">
@@ -216,13 +282,31 @@ export default function PayoutsPage() {
             {/* Live Rate + Countdown */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-bold text-white">
-                  ≈ <span className="text-emerald-400">₦{RATE_PER_USD.toLocaleString()}</span> per $1
+                <p className="text-sm font-bold text-white flex items-center gap-2">
+                  {rateLoading ? (
+                    <><Loader2 size={14} className="animate-spin text-emerald-400" /> Fetching rate…</>
+                  ) : rateError ? (
+                    <span className="text-rose-400 text-xs">Rate unavailable</span>
+                  ) : (
+                    <>≈ <span className="text-emerald-400">₦{rate?.toLocaleString("en-NG")}</span> per $1</>
+                  )}
                 </p>
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  Rate locked for{" "}
-                  <span className="font-bold text-white">{formatTime(timeLeft)}</span>
-                  <Info size={12} className="text-slate-600 cursor-help" />
+                <div className="flex items-center gap-2">
+                  {rateError && (
+                    <button
+                      onClick={fetchRate}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                    >
+                      <RefreshCw size={11} /> Retry
+                    </button>
+                  )}
+                  {!rateError && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      Rate locked for{" "}
+                      <span className="font-bold text-white">{formatTime(timeLeft)}</span>
+                      <Info size={12} className="text-slate-600 cursor-help" />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -233,13 +317,14 @@ export default function PayoutsPage() {
                 />
               </div>
 
-              {numAmount > 0 && (
+              {numAmount > 0 && rate && (
                 <p className="text-xs text-slate-400 font-medium mt-2">
                   You will receive ≈{" "}
                   <span className="text-white font-bold">₦{ngnEquiv}</span>
                 </p>
               )}
             </div>
+
 
             {/* ── Recipients Row ─────────────────────── */}
             <div className="mb-6">

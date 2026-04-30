@@ -1,53 +1,88 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Landmark, Loader2 } from "lucide-react";
 
-// ─── Type matching the Busha recipient shape returned by POST /api/recipients ─
-// We keep a simplified local version for the UI list (not the full BushaRecipient)
 export interface Recipient {
-  id:            string;  // Busha recipient ID (e.g. "64ae8c26ea1033204c805a8a")
-  name:          string;  // Account holder's name
-  bank:          string;  // Bank name (e.g. "GTBank")
-  accountNumber: string;  // 10-digit NUBAN number
-  bankCode:      string;  // Nigerian bank code (e.g. "058")
-  avatar:        string;  // Generated from initials via ui-avatars
+  id:            string;
+  name:          string;
+  bank:          string;
+  accountNumber: string;
+  bankCode:      string;  // Busha internal bank code (from GET /v1/banks)
+  avatar:        string;
 }
 
 interface AddRecipientModalProps {
   onClose: () => void;
-  // Returns the newly created recipient so the parent can add it to the list
   onAdd:   (recipient: Recipient) => void;
 }
 
-// Nigerian banks with their NUBAN bank codes
-// Bank codes are required by the Busha API in the `fields` array
-const NIGERIAN_BANKS: { name: string; code: string }[] = [
-  { name: "GTBank",      code: "058"    },
-  { name: "First Bank",  code: "011"    },
-  { name: "Zenith Bank", code: "057"    },
-  { name: "Access Bank", code: "044"    },
-  { name: "UBA",         code: "033"    },
-  { name: "Fidelity Bank", code: "070"  },
-  { name: "Sterling Bank", code: "232"  },
-  { name: "Wema Bank",   code: "035"    },
-  { name: "Polaris Bank",code: "076"    },
-  { name: "Stanbic IBTC",code: "221"   },
-  { name: "FCMB",        code: "214"    },
-  { name: "Ecobank",     code: "050"    },
-  { name: "Union Bank",  code: "032"    },
-  { name: "Keystone Bank",code: "082"   },
+interface BankOption {
+  name: string;
+  code: string;
+}
+
+// ── Fallback list (used only if GET /api/banks fails) ────────────────────────
+// These are common Busha-compatible codes sourced from their API docs pattern.
+// Prefer the live list from /api/banks which has Busha's exact internal codes.
+const FALLBACK_BANKS: BankOption[] = [
+  { name: "Access Bank",        code: "000014" },
+  { name: "Ecobank Nigeria",    code: "000010" },
+  { name: "FCMB",               code: "000003" },
+  { name: "Fidelity Bank",      code: "000007" },
+  { name: "First Bank",         code: "000016" },
+  { name: "GTBank",             code: "000013" },
+  { name: "Keystone Bank",      code: "000002" },
+  { name: "Kuda Bank",          code: "090267" },
+  { name: "Opay",               code: "100004" },
+  { name: "PalmPay",            code: "100033" },
+  { name: "Polaris Bank",       code: "000008" },
+  { name: "Providus Bank",      code: "000023" },
+  { name: "Stanbic IBTC Bank",  code: "000012" },
+  { name: "Sterling Bank",      code: "000001" },
+  { name: "UBA",                code: "000004" },
+  { name: "Union Bank",         code: "000018" },
+  { name: "Unity Bank",         code: "000011" },
+  { name: "Wema Bank",          code: "000017" },
+  { name: "Zenith Bank",        code: "000015" },
 ];
 
 export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalProps) {
-  // Form fields
-  const [accountName,   setAccountName]   = useState("");  // → Busha fields: account_name
-  const [selectedBank,  setSelectedBank]  = useState("");  // → Busha fields: bank_name + bank_code
-  const [accountNumber, setAccountNumber] = useState("");  // → Busha fields: account_number
+  const [accountName,   setAccountName]   = useState("");
+  const [selectedBank,  setSelectedBank]  = useState("");  // holds bank code
+  const [accountNumber, setAccountNumber] = useState("");
 
-  // UI state
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [banks,        setBanks]        = useState<BankOption[]>([]);
+  const [banksLoading, setBanksLoading] = useState(true);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState("");
+
+  // Fetch Busha's own bank list — their codes (e.g. "100020") pass their validation.
+  // Fall back to FALLBACK_BANKS if the endpoint is unavailable.
+  useEffect(() => {
+    fetch("/api/banks")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.banks) && data.banks.length > 0) {
+          setBanks(
+            [...data.banks].sort((a: BankOption, b: BankOption) =>
+              a.name.localeCompare(b.name)
+            )
+          );
+        } else {
+          console.warn("[AddRecipientModal] /api/banks returned no data, using fallback list");
+          setBanks(FALLBACK_BANKS);
+        }
+      })
+      .catch((err) => {
+        console.warn("[AddRecipientModal] /api/banks failed, using fallback list:", err);
+        setBanks(FALLBACK_BANKS);
+      })
+      .finally(() => setBanksLoading(false));
+  }, []);
+
+  const selectedBankObj = banks.find((b) => b.code === selectedBank);
+
 
   const isValid =
     accountName.trim().length > 1 &&
@@ -63,8 +98,7 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
       return;
     }
 
-    const bank = NIGERIAN_BANKS.find((b) => b.name === selectedBank);
-    if (!bank) {
+    if (!selectedBankObj) {
       setError("Please select a valid bank.");
       return;
     }
@@ -79,11 +113,12 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountName:   accountName.trim(),
-          bankName:      bank.name,
-          bankCode:      bank.code,
+          bankName:      selectedBankObj.name,
+          bankCode:      selectedBankObj.code, // 6-digit NIBSS code — what Busha requires
           accountNumber: accountNumber.replace(/\D/g, ""),
         }),
       });
+
 
       const data = await res.json();
 
@@ -96,8 +131,8 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
       const newRecipient: Recipient = {
         id:            data.recipient.id,
         name:          accountName.trim(),
-        bank:          bank.name,
-        bankCode:      bank.code,
+        bank:          selectedBankObj.name,
+        bankCode:      selectedBankObj.code,
         accountNumber: accountNumber.replace(/\D/g, ""),
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(accountName.trim())}&background=10b981&color=fff`,
       };
@@ -177,6 +212,7 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
             <select
               id="recipient-bank"
               required
+              disabled={banksLoading}
               value={selectedBank}
               onChange={(e) => setSelectedBank(e.target.value)}
               className="
@@ -184,11 +220,14 @@ export default function AddRecipientModal({ onClose, onAdd }: AddRecipientModalP
                 bg-white/[0.05] border border-white/[0.10]
                 focus:outline-none focus:border-emerald-500/50
                 transition-all appearance-none cursor-pointer
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              <option value="" disabled className="bg-[#111827]">Select a bank</option>
-              {NIGERIAN_BANKS.map((b) => (
-                <option key={b.code} value={b.name} className="bg-[#111827]">
+              <option value="" disabled className="bg-[#111827]">
+                {banksLoading ? "Loading banks…" : "Select a bank"}
+              </option>
+              {banks.map((b) => (
+                <option key={b.code} value={b.code} className="bg-[#111827]">
                   {b.name}
                 </option>
               ))}

@@ -227,3 +227,27 @@ export interface BushaTransferLeg {
 export interface BushaCreateTransferPayload {
     quote_id: string;  // Required: ID from a previously created quote
 }
+
+// ── Quote ─────────────────────────────────────────────────────────────────────
+// A Quote locks the exchange rate for a USDC→NGN transfer for ~4 minutes.
+// Create one via POST /v1/quotes, then pass quote.id to POST /v1/transfers.
+export interface BushaCreateQuotePayload {
+    source_currency: string;  // e.g. "USDC"
+    target_currency: string;  // e.g. "NGN"
+    source_amount?:  string;  // amount of source currency to convert
+    target_amount?:  string;  // OR specify how much NGN you want to receive
+    pay_in?:  { type: string };  // optional: payment method
+    pay_out?: { type: string };  // optional: payout method
+}
+
+export interface BushaQuote {
+    id:              string;
+    source_currency: string;
+    target_currency: string;
+    source_amount:   string;  // USDC amount
+    target_amount:   string;  // NGN amount
+    rate:            string;  // NGN per 1 USDC
+    expires_at:      string;  // ISO timestamp when this quote expires
+    created_at:      string;
+}
+

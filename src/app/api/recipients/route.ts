@@ -19,39 +19,58 @@ export async function POST(request: Request) {
   try {
     const { bankName, bankCode, accountNumber, accountName } = await request.json();
 
-    if (!bankCode || !accountNumber || !accountName) {
+    // ── DIAGNOSTIC LOG — shows exactly what the frontend sent ────────────────
+    console.log("[/api/recipients POST] Received:", {
+      bankName,
+      bankCode,           // <-- this is what Busha validates
+      bankCodeLength: String(bankCode ?? "").length,
+      bankCodeAsInt:  parseInt(String(bankCode ?? ""), 10),
+      accountNumber,
+      accountName,
+    });
+
+    // ── Server-side validation (mirrors Busha's own rules) ──────────────────
+    const trimmedName   = (accountName ?? "").trim();
+    const cleanedAccNum = (accountNumber ?? "").replace(/\D/g, "");
+
+    if (!bankCode) {
+      return NextResponse.json({ success: false, error: "Bank code is required" }, { status: 400 });
+    }
+
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "bankCode, accountNumber, and accountName are all required",
-        },
+        { success: false, error: "Account name must be between 2 and 100 characters" },
+        { status: 400 }
+      );
+    }
+    if (cleanedAccNum.length !== 10) {
+      return NextResponse.json(
+        { success: false, error: `Account number must be exactly 10 digits (got ${cleanedAccNum.length})` },
         { status: 400 }
       );
     }
 
-
     const payload: BushaCreateNgnRecipientPayload = {
       currency_id: "NGN",
-      country_id: "NG",
-      type: "ngn_bank_transfer",
-      legal_entity_type: "business",
+      country_id:  "NG",
+      type:        "ngn_bank_transfer",
+      legal_entity_type: "personal",   // personal bank account — not a business
       fields: [
-        { name: "bank_name", value: bankName ?? "" },
-        { name: "account_number", value: accountNumber },
-        { name: "bank_code", value: bankCode },
-        { name: "account_name", value: accountName },
+        // bank_name is informational only — omitting avoids sandbox validation quirks
+        { name: "account_number", value: cleanedAccNum },
+        { name: "bank_code",      value: bankCode },
+        { name: "account_name",   value: trimmedName },
       ],
     };
 
+
+    // Log the exact payload sent to Busha for debugging
+    console.log("[/api/recipients POST] Sending to Busha:", JSON.stringify(payload, null, 2));
 
     const result = await bushaFetch<BushaResponse<BushaRecipient>>("/recipients", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-
-    // I need to persists the result.data.id and the bank details in my DB so the
-    // user doesn't have to re-enter them on every payout. For now we return
-    // the raw Busha response and let the frontend handle caching.
 
     return NextResponse.json(
       { success: true, recipient: result.data },
@@ -69,6 +88,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
 
 export async function GET() {
   try {
